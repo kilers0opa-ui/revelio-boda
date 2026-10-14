@@ -67,7 +67,7 @@
   .v-foto{background:rgba(94,154,119,.16);color:#8FD0A8;border:1px solid rgba(94,154,119,.3)}
   .v-video{background:rgba(139,58,78,.2);color:#E0909F;border:1px solid rgba(139,58,78,.38)}
 
-  /* progreso hacia el tope */
+  /* barrita de avance del reto */
   .avance{margin:2px 0 16px}
   .avance-texto{display:flex;justify-content:space-between;font-size:12.5px;color:var(--crema-sutil);margin-bottom:6px}
   .avance-texto b{color:var(--oro-claro);font-weight:600}
@@ -109,7 +109,6 @@
   .pieza.espera .sello{background:rgba(20,15,26,.72);color:var(--crema-sutil)}
   .pieza.subiendo .sello{background:rgba(201,161,74,.85);color:#241A09}
   .pieza.listo .sello{background:rgba(94,154,119,.9);color:#0E1A12}
-  .pieza.tope .sello{background:rgba(20,15,26,.8);color:var(--oro-claro)}
   .pieza.dup .sello,.pieza.error .sello{background:rgba(139,58,78,.92);color:#FBE3E8}
   .pieza.subiendo::after{content:'';position:absolute;inset:0;background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.14) 50%,transparent 70%);animation:brillo 1.1s linear infinite}
   @keyframes brillo{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
@@ -143,8 +142,8 @@
     <div class="carta">
       <p class="cintillo">Cómo funciona</p>
       <p class="tenue" style="margin:0 0 18px">
-        Te damos un reto según el momento de la boda. Súbele todas las fotos y videos que quieras:
-        cada foto vale 1 punto y cada video 2. Al final de la noche, quien junte más puntos gana.
+        Te damos un reto según el momento de la boda. Súbele todas las fotos y videos que quieras,
+        y cuando lo termines, te llega otro. Al final de la noche revelamos quién ganó.
       </p>
       <input type="text" id="campo-nombre" placeholder="Tu nombre y apellido" autocomplete="name" autocapitalize="words" maxlength="60">
       <button class="primario" id="boton-entrar">Empezar</button>
@@ -170,8 +169,7 @@
     </div>
 
     <div class="marcador">
-      <div class="casilla"><div class="cifra" id="cifra-puntos">0</div><div class="pie">Puntos</div></div>
-      <div class="casilla"><div class="cifra" id="cifra-archivos">0</div><div class="pie">Archivos</div></div>
+      <div class="casilla"><div class="cifra" id="cifra-archivos">0</div><div class="pie">Fotos y videos que has subido</div></div>
     </div>
 
     <!-- reto del momento -->
@@ -179,14 +177,10 @@
       <p class="cintillo">Tu reto de este momento</p>
       <h2 class="reto-titulo" id="reto-titulo"></h2>
       <p class="reto-desc" id="reto-desc"></p>
-      <div class="valores">
-        <span class="valor v-foto" id="valor-foto">Foto · 1 pt</span>
-        <span class="valor v-video" id="valor-video">Video · 2 pts</span>
-      </div>
       <div class="avance">
-        <div class="avance-texto"><span>En este reto</span><span><b id="reto-pts">0</b> de <span id="reto-tope">15</span> pts</span></div>
+        <div class="avance-texto"><span>Avance del reto</span><span id="reto-cuenta"></span></div>
         <div class="riel"><i id="reto-riel"></i></div>
-        <p class="lleno oculto" id="reto-lleno">¡Reto completo! Lo que subas aquí se guarda en el álbum, pero ya no suma. Pasa al siguiente.</p>
+        <p class="lleno oculto" id="reto-lleno">¡Reto cumplido! Lo que subas aquí se sigue guardando en el álbum. Pasa al siguiente para recibir un reto nuevo.</p>
       </div>
 
       <input type="file" id="archivos-reto" accept="image/*,video/*" multiple>
@@ -212,14 +206,9 @@
     <!-- fotos libres -->
     <div class="carta" id="caja-libres">
       <p class="cintillo">Fotos libres</p>
-      <p class="tenue" style="margin:0 0 14px">
-        ¿Pasó algo que no entra en el reto? Súbelo aquí también. Cuenta igual: 1 punto por foto y 2 por video.
+      <p class="tenue" style="margin:0 0 16px">
+        ¿Pasó algo que no entra en el reto? Súbelo aquí también. Todo cuenta.
       </p>
-      <div class="avance">
-        <div class="avance-texto"><span id="libre-etiqueta">En este momento</span><span><b id="libre-pts">0</b> de <span id="libre-tope">15</span> pts</span></div>
-        <div class="riel"><i id="libre-riel"></i></div>
-        <p class="lleno oculto" id="libre-lleno">Llegaste al máximo de este momento. Sigue subiendo: todo llega al álbum, y en el próximo momento vuelves a sumar.</p>
-      </div>
       <input type="file" id="archivos-libres" accept="image/*,video/*" multiple>
       <label for="archivos-libres" class="secundario boton">Subir fotos libres</label>
       <div class="cola" id="cola-libre"></div>
@@ -337,13 +326,9 @@ function pintar(){
   if (r.novios) document.title = 'Retos de Boda · ' + r.novios;
   $('saludo').textContent = 'Hola, ' + primerNombre(r.nombre);
   $('nombre-salir').textContent = primerNombre(r.nombre);
-  $('cifra-puntos').textContent = r.puntos;
   $('cifra-archivos').textContent = r.archivos;
   $('indicador-fase').textContent = r.fase ? ((r.fase.emoji ? r.fase.emoji + '  ' : '') + r.fase.nombre) : '✨  Aún no empieza';
 
-  var g = r.reglas || { puntosFoto: 1, puntosVideo: 2, topeReto: 15, topeLibres: 15 };
-  $('valor-foto').textContent = 'Foto · ' + g.puntosFoto + (g.puntosFoto === 1 ? ' pt' : ' pts');
-  $('valor-video').textContent = 'Video · ' + g.puntosVideo + (g.puntosVideo === 1 ? ' pt' : ' pts');
 
   if (r.premio){ $('texto-premio').textContent = r.premio; $('caja-premio').classList.remove('oculto'); }
   else $('caja-premio').classList.add('oculto');
@@ -358,23 +343,19 @@ function pintar(){
     $('caja-espera').classList.remove('oculto');
     $('texto-espera').textContent = r.mensaje || 'Ahorita no hay retos nuevos. Mientras, sigue con las fotos libres.';
   }
-  $('libre-etiqueta').textContent = r.fase ? 'En ' + r.fase.nombre.toLowerCase() : 'En este momento';
 
   pintarAvance();
   pintarBotones();
   pintarCola();
 }
 
+// Solo una barrita: cuánto le falta al reto, sin cifras de puntos
 function pintarAvance(){
-  var r = estado, g = r.reglas || {};
-  var tr = g.topeReto || 15, tl = g.topeLibres || 15;
-  var pr = r.retoPuntos || 0, pl = r.librePuntos || 0;
-  $('reto-pts').textContent = Math.min(pr, tr);  $('reto-tope').textContent = tr;
-  $('libre-pts').textContent = Math.min(pl, tl); $('libre-tope').textContent = tl;
-  $('reto-riel').style.width = Math.min(100, pr / tr * 100) + '%';
-  $('libre-riel').style.width = Math.min(100, pl / tl * 100) + '%';
-  $('reto-lleno').classList.toggle('oculto', pr < tr);
-  $('libre-lleno').classList.toggle('oculto', pl < tl);
+  var r = estado;
+  var n = r.retoArchivos || 0;
+  $('reto-cuenta').textContent = n ? (n + (n === 1 ? ' subida' : ' subidas')) : '';
+  $('reto-riel').style.width = Math.round(Math.min(1, r.retoAvance || 0) * 100) + '%';
+  $('reto-lleno').classList.toggle('oculto', !r.retoCompleto);
 }
 
 function pintarBotones(){
@@ -435,7 +416,7 @@ async function procesar(){
 }
 
 async function subirUno(it){
-  var g = estado.reglas || { maxFotoMB: 12, maxVideoMB: 15 };
+  var g = estado.limites || { maxFotoMB: 12, maxVideoMB: 15 };
   var f = it.archivo;
   if (it.esVideo && f.size > g.maxVideoMB * 1048576){
     it.estado = 'error'; it.nota = 'Muy pesado';
@@ -470,13 +451,16 @@ async function subirUno(it){
       }
       if (r.duplicado){ it.estado = 'dup'; it.nota = 'Repetida'; return; }
 
-      it.estado = r.puntosOtorgados > 0 ? 'listo' : 'tope';
-      it.nota = r.puntosOtorgados > 0 ? '+' + r.puntosOtorgados : 'Guardada';
-      estado.puntos = r.puntos;
+      it.estado = 'listo';
+      it.nota = '✓ Lista';
       estado.archivos = r.archivos;
-      if ((r.destino || it.destino) === 'libre') estado.librePuntos = (estado.librePuntos || 0) + r.puntosOtorgados;
-      else { estado.retoPuntos = (estado.retoPuntos || 0) + r.puntosOtorgados; estado.retoArchivos = (estado.retoArchivos || 0) + 1; }
-      actualizarMarcador(r.puntosOtorgados);
+      var eraCompleto = !!estado.retoCompleto;
+      if ((r.destino || it.destino) === 'reto'){
+        estado.retoArchivos = (estado.retoArchivos || 0) + 1;
+        if (typeof r.avance === 'number') estado.retoAvance = r.avance;
+        estado.retoCompleto = !!r.completo;
+      }
+      actualizarMarcador(!eraCompleto && estado.retoCompleto);
       return;
     } catch (e){
       if (i === esperas.length - 1){ it.estado = 'error'; it.nota = 'Sin señal'; }
@@ -484,16 +468,13 @@ async function subirUno(it){
   }
 }
 
-function actualizarMarcador(ganados){
-  $('cifra-puntos').textContent = estado.puntos;
-  $('cifra-archivos').textContent = estado.archivos;
+function actualizarMarcador(retoRecienCumplido){
+  var c = $('cifra-archivos');
+  c.textContent = estado.archivos;
+  c.classList.add('salta');
+  setTimeout(function(){ c.classList.remove('salta'); }, 260);
   pintarAvance();
-  if (ganados > 0){
-    var c = $('cifra-puntos');
-    c.classList.add('salta');
-    setTimeout(function(){ c.classList.remove('salta'); }, 260);
-    brindis('+' + ganados + (ganados === 1 ? ' punto' : ' puntos'));
-  }
+  if (retoRecienCumplido) brindis('¡Reto cumplido! ✨');
 }
 
 function pintarCola(){
@@ -502,20 +483,23 @@ function pintarCola(){
     var piezas = cola.filter(function(it){ return it.destino === dest; });
     caja.innerHTML = piezas.map(function(it){
       var interior = it.vista ? '<img src="' + it.vista + '" alt="">' : '<div class="icono-video">▶</div>';
-      var sello = { espera: 'En fila', subiendo: 'Subiendo', listo: it.nota, tope: it.nota, dup: it.nota, error: it.nota }[it.estado] || '';
+      var sello = { espera: 'En fila', subiendo: 'Subiendo', listo: it.nota, dup: it.nota, error: it.nota }[it.estado] || '';
       var reintentar = it.estado === 'error' ? ' onclick="reintentar(' + it.id + ')"' : '';
       return '<div class="pieza ' + it.estado + '"' + reintentar + '>' + interior + '<span class="sello">' + sello + '</span></div>';
     }).join('');
 
     var resumen = $('resumen-' + dest);
     if (!piezas.length){ resumen.classList.add('oculto'); return; }
-    var hechas = piezas.filter(function(x){ return ['listo','tope','dup'].indexOf(x.estado) >= 0; }).length;
+    var listas = piezas.filter(function(x){ return x.estado === 'listo'; }).length;
+    var repetidas = piezas.filter(function(x){ return x.estado === 'dup'; }).length;
     var fallas = piezas.filter(function(x){ return x.estado === 'error'; }).length;
-    var pendientes = piezas.length - hechas - fallas;
+    var pendientes = piezas.length - listas - repetidas - fallas;
     resumen.classList.remove('oculto');
     resumen.textContent = pendientes
-      ? 'Subiendo ' + (hechas + 1) + ' de ' + piezas.length + '… no cierres la página'
-      : (hechas + ' subida' + (hechas === 1 ? '' : 's') + (fallas ? ' · ' + fallas + ' con error (tócala para reintentar)' : ''));
+      ? 'Subiendo ' + (listas + repetidas + 1) + ' de ' + piezas.length + '… no cierres la página'
+      : (listas + ' subida' + (listas === 1 ? '' : 's') +
+         (repetidas ? ' · ' + repetidas + ' repetida' + (repetidas === 1 ? '' : 's') + ' (ya estaba en el álbum)' : '') +
+         (fallas ? ' · ' + fallas + ' con error (tócala para reintentar)' : ''));
   });
 }
 

@@ -15,6 +15,7 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
 <script src="config.js"></script>
+<script src="dialogo.js"></script>
 <style>
   :root{
     --tinta:#140F1A; --tinta-2:#1E1726; --carta:#251C2E;
@@ -271,8 +272,9 @@ window.addEventListener('DOMContentLoaded', function(){
   $('boton-siguiente').addEventListener('click', siguiente);
   $('boton-saltar').addEventListener('click', saltar);
   $('boton-refrescar').addEventListener('click', function(){ cargarEstado(); });
-  $('boton-salir').addEventListener('click', function(){
-    if (hayPendientes() && !confirm('Todavía se están subiendo archivos. ¿Salir de todos modos?')) return;
+  $('boton-salir').addEventListener('click', async function(){
+    if (hayPendientes() && !(await preguntar('Todavía se están subiendo archivos. ¿Salir de todos modos?',
+        { si: 'Salir', no: 'Quedarme' }))) return;
     olvidarGuest(); mostrar('pantalla-bienvenida');
   });
   // No cerrar la página a media subida sin avisar
@@ -526,7 +528,9 @@ async function siguiente(){
 }
 
 async function saltar(){
-  if (!confirm('Se cambia por otro reto al azar y gastas uno de tus cambios. ¿Seguro?')) return;
+  var quedan = estado && estado.saltosRestantes ? estado.saltosRestantes : 0;
+  if (!(await preguntar('Te damos otro reto al azar. Te quedan ' + quedan +
+      (quedan === 1 ? ' cambio.' : ' cambios.') + ' ¿Lo cambiamos?', { si: 'Cambiar reto', no: 'Mejor no' }))) return;
   var b = $('boton-saltar'); b.disabled = true;
   try {
     var r = await llamarApi({ accion: 'saltar', guestId: guestId() });

@@ -11,6 +11,7 @@
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <script src="config.js"></script>
+<script src="dialogo.js"></script>
 <style>
   :root{
     --tinta:#0E1E33; --tinta-2:#122540; --carta:#17304E;
@@ -332,11 +333,13 @@ window.addEventListener('DOMContentLoaded', function(){
   $('boton-carpeta').addEventListener('click', function(){
     if (datos && datos.carpetaUrl) window.open(datos.carpetaUrl, '_blank');
   });
-  $('boton-registro').addEventListener('click', function(){
+  $('boton-registro').addEventListener('click', async function(){
     if (!datos) return;
-    if (confirm(datos.registroAbierto
-        ? 'Se cierra el registro. Nadie nuevo podrá entrar, los que ya están siguen jugando. ¿Seguro?'
-        : 'Se vuelve a abrir el registro. ¿Seguro?')) pedir('registro');
+    var ok = await preguntar(datos.registroAbierto
+        ? 'Se cierra el registro. Nadie nuevo podrá entrar; los que ya están siguen jugando.'
+        : 'Se vuelve a abrir el registro para invitados nuevos.',
+      { si: datos.registroAbierto ? 'Cerrar registro' : 'Abrir registro', no: 'Cancelar' });
+    if (ok) pedir('registro');
   });
   $('boton-descargar-qr').addEventListener('click', descargarQR);
   $('boton-mas').addEventListener('click', function(){ pedirGaleria(false); });
@@ -406,7 +409,7 @@ function pedir(accion, extra, esLogin){
           $('puerta').classList.remove('oculto');
           $('error-clave').textContent = r && r.error ? r.error : 'No se pudo entrar.';
           $('error-clave').classList.remove('oculto');
-        } else alert(r && r.error ? r.error : 'No se pudo cargar.');
+        } else avisar(r && r.error ? r.error : 'No se pudo cargar.');
         return;
       }
       guardarClave(clave);
@@ -424,7 +427,7 @@ function pedir(accion, extra, esLogin){
         $('puerta').classList.remove('oculto');
         $('error-clave').textContent = 'No hay conexión. Revisa tu señal e intenta otra vez.';
         $('error-clave').classList.remove('oculto');
-      } else alert('No hay conexión. Intenta otra vez.');
+      } else avisar('No hay conexión. Intenta otra vez.');
     });
 }
 
@@ -441,7 +444,7 @@ function pedirGaleria(reiniciar){
     .then(function(r){
       galeria.cargando = false;
       $('galeria-cargando').classList.add('oculto');
-      if (!r || r.error){ alert(r && r.error ? r.error : 'No se pudo cargar la galería.'); return; }
+      if (!r || r.error){ avisar(r && r.error ? r.error : 'No se pudo cargar la galería.'); return; }
       if (reiniciar) galeria.items = [];
       galeria.items = galeria.items.concat(r.items || []);
       galeria.desde = (r.desde || 0) + (r.items || []).length;
@@ -451,12 +454,13 @@ function pedirGaleria(reiniciar){
     .catch(function(){
       galeria.cargando = false;
       $('galeria-cargando').classList.add('oculto');
-      alert('No hay conexión. Intenta otra vez.');
+      avisar('No hay conexión. Intenta otra vez.');
     });
 }
 
-function anular(id){
-  if (!confirm('Se le quitan los puntos de esa entrega al invitado. El archivo se queda en Drive. ¿Seguro?')) return;
+async function anular(id){
+  if (!(await preguntar('Se le quitan los puntos de esa entrega al invitado. El archivo se queda en Drive.',
+      { si: 'Anular', no: 'Cancelar' }))) return;
   pedir('anular', { entregaId: id });
 }
 
@@ -608,7 +612,7 @@ function pintarQR(url){
 
 function descargarQR(){
   var lienzo = $('qr').querySelector('canvas');
-  if (!lienzo){ alert('El QR todavía no se generó.'); return; }
+  if (!lienzo){ avisar('El QR todavía no se generó.'); return; }
   var a = document.createElement('a');
   a.href = lienzo.toDataURL('image/png');
   a.download = 'QR-retos-boda.png';

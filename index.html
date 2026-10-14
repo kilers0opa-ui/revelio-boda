@@ -118,6 +118,25 @@
   .aviso{background:rgba(201,161,74,.09);border:1px solid var(--borde);border-radius:14px;padding:15px 17px;font-size:14.5px;color:#E0D6CA}
   .error{background:rgba(139,58,78,.16);border-color:rgba(224,144,159,.4);color:#F0B9C3}
 
+  .pista{font-size:13.5px;color:var(--oro-claro);margin:-6px 0 16px;opacity:.9}
+
+  /* Respuesta inmediata al pedir otro reto: el servidor tarda, la página no */
+  #caja-reto{position:relative;overflow:hidden}
+  /* la tarjeta se apaga; el aviso va fijo abajo de la pantalla para que
+     siempre se vea, aunque la tarjeta sea muy alta por las miniaturas */
+  .velo{position:absolute;inset:0;z-index:3;background:rgba(20,15,26,.72);
+    backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);
+    opacity:0;pointer-events:none;transition:opacity .1s ease}
+  #caja-reto.cambiando .velo{opacity:1;pointer-events:auto}
+  .espera{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));z-index:10;
+    transform:translate(-50%,24px);display:flex;align-items:center;gap:11px;white-space:nowrap;
+    background:linear-gradient(135deg,var(--oro),#B08A36);color:#241A09;font-weight:700;font-size:15.5px;
+    padding:13px 22px;border-radius:999px;box-shadow:0 14px 34px -10px rgba(0,0,0,.75);
+    opacity:0;pointer-events:none;transition:opacity .12s ease,transform .18s ease}
+  .espera.visible{opacity:1;transform:translate(-50%,0)}
+  @keyframes aparece{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  #caja-reto.nuevo{animation:aparece .38s ease}
+
   .brindis{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));transform:translate(-50%,30px);
     background:linear-gradient(135deg,var(--oro),#B08A36);color:#241A09;font-weight:700;font-size:15px;
     padding:11px 20px;border-radius:999px;box-shadow:0 12px 30px -10px rgba(0,0,0,.7);opacity:0;
@@ -143,8 +162,8 @@
     <div class="carta">
       <p class="cintillo">Cómo funciona</p>
       <p class="tenue" style="margin:0 0 18px">
-        Te damos un reto según el momento de la boda. Súbele todas las fotos y videos que quieras,
-        y cuando lo termines, te llega otro. Al final de la noche revelamos quién ganó.
+        Te damos un reto según el momento de la boda. Súbele todas las fotos y videos que quieras
+        y, cuando lo termines, te llega otro. Al final de la noche revelamos quién ganó.
       </p>
       <input type="text" id="campo-nombre" placeholder="Tu nombre y apellido" autocomplete="name" autocapitalize="words" maxlength="60">
       <button class="primario" id="boton-entrar">Empezar</button>
@@ -175,9 +194,11 @@
 
     <!-- reto del momento -->
     <div class="carta" id="caja-reto">
+      <div class="velo"></div>
       <p class="cintillo">Tu reto de este momento</p>
       <h2 class="reto-titulo" id="reto-titulo"></h2>
       <p class="reto-desc" id="reto-desc"></p>
+      <p class="pista">Sube todas las fotos y videos que puedas de este reto.</p>
       <div class="avance">
         <div class="avance-texto"><span>Avance del reto</span><span id="reto-cuenta"></span></div>
         <div class="riel"><i id="reto-riel"></i></div>
@@ -206,9 +227,10 @@
 
     <!-- fotos libres -->
     <div class="carta" id="caja-libres">
-      <p class="cintillo">Fotos libres</p>
+      <h2 class="reto-titulo" style="font-size:27px">¿Quieres puntos extra?</h2>
+      <p class="cintillo" style="margin-top:2px">Fotos libres</p>
       <p class="tenue" style="margin:0 0 16px">
-        ¿Pasó algo que no entra en el reto? Súbelo aquí también. Todo cuenta.
+        ¿Pasó algo que no entra en el reto? Súbelo aquí también y obtén puntos extra para ganar.
       </p>
       <input type="file" id="archivos-libres" accept="image/*,video/*" multiple>
       <label for="archivos-libres" class="secundario boton">Subir fotos libres</label>
@@ -229,6 +251,7 @@
 </div>
 
 <div class="brindis" id="brindis"></div>
+<div class="espera" id="aviso-espera" role="status" aria-live="polite"><span class="girando oscuro"></span><span id="velo-texto">Buscando tu siguiente reto…</span></div>
 
 <script>
 /* ============================================================
@@ -515,29 +538,42 @@ function reintentar(id){
 /* ============================================================
  *  Siguiente y cambiar de reto
  * ============================================================ */
+/* El velo aparece en el mismo instante del toque: aunque el servidor tarde,
+   el invitado ve que algo está pasando y no vuelve a tocar ni se desespera. */
+async function pedirOtroReto(accion){
+  var caja = $('caja-reto');
+  $('velo-texto').textContent = accion === 'saltar' ? 'Cambiando tu reto…' : 'Buscando tu siguiente reto…';
+  caja.classList.add('cambiando');
+  $('aviso-espera').classList.add('visible');
+  $('boton-siguiente').disabled = true;
+  $('boton-saltar').disabled = true;
+  try {
+    var r = await llamarApi({ accion: accion, guestId: guestId() });
+    if (!r || r.error){ errorReto((r && r.error) || 'No se pudo. Intenta otra vez.'); return; }
+    limpiarCola('reto');
+    estado = r;
+    pintar();
+    caja.classList.remove('nuevo'); void caja.offsetWidth; caja.classList.add('nuevo');
+    window.scrollTo({ top: Math.max(0, caja.getBoundingClientRect().top + window.scrollY - 24), behavior: 'smooth' });
+  } catch (e){
+    errorReto('No hay conexión. Intenta otra vez.');
+  } finally {
+    caja.classList.remove('cambiando');
+    $('aviso-espera').classList.remove('visible');
+    pintarBotones();
+  }
+}
+
 async function siguiente(){
   if (hayPendientes('reto')) return;
-  var b = $('boton-siguiente'); b.disabled = true;
-  try {
-    var r = await llamarApi({ accion: 'siguiente', guestId: guestId() });
-    if (!r || r.error){ errorReto((r && r.error) || 'No se pudo.'); b.disabled = false; return; }
-    limpiarCola('reto');
-    estado = r; pintar();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  } catch (e){ errorReto('No hay conexión. Intenta otra vez.'); b.disabled = false; }
+  await pedirOtroReto('siguiente');
 }
 
 async function saltar(){
   var quedan = estado && estado.saltosRestantes ? estado.saltosRestantes : 0;
   if (!(await preguntar('Te damos otro reto al azar. Te quedan ' + quedan +
       (quedan === 1 ? ' cambio.' : ' cambios.') + ' ¿Lo cambiamos?', { si: 'Cambiar reto', no: 'Mejor no' }))) return;
-  var b = $('boton-saltar'); b.disabled = true;
-  try {
-    var r = await llamarApi({ accion: 'saltar', guestId: guestId() });
-    if (!r || r.error){ errorReto((r && r.error) || 'No se pudo.'); b.disabled = false; return; }
-    limpiarCola('reto');
-    estado = r; pintar();
-  } catch (e){ errorReto('No hay conexión. Intenta otra vez.'); b.disabled = false; }
+  await pedirOtroReto('saltar');
 }
 
 function limpiarCola(destino){

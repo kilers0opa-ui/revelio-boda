@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0E1E33">
+<meta name="robots" content="noindex">
+<title>Panel de novios · Revelio</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<script src="config.js"></script>
+<style>
+  :root{
+    --tinta:#0E1E33; --tinta-2:#122540; --carta:#17304E;
+    --borde:rgba(217,180,106,.26);
+    --crema:#F7F2E7; --crema-sutil:#B9C2D1;
+    --oro:#D9B46A; --oro-claro:#F0D9A8;
+    --verde:#6FBF95; --rojo:#E2879B;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{
+    margin:0;
+    background:
+      radial-gradient(900px 480px at 50% -8%, rgba(217,180,106,.1), transparent 68%),
+      var(--tinta);
+    background-attachment:fixed;
+    color:var(--crema);
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    font-size:15px;line-height:1.55;padding:0 14px 44px;min-height:100dvh
+  }
+  .envoltura{max-width:860px;margin:0 auto;padding:22px 0}
+  .oculto{display:none !important}
+  h1,h2,.display{font-family:'Cormorant Garamond',Georgia,serif;font-weight:500;margin:0}
+  h1{font-size:30px;line-height:1.15}
+  .cintillo{font-size:10.5px;letter-spacing:.17em;text-transform:uppercase;color:var(--oro);font-weight:600;margin:0 0 10px}
+  .tenue{color:var(--crema-sutil);font-size:13.5px}
+
+  .carta{
+    background:linear-gradient(170deg,var(--carta),var(--tinta-2));
+    border:1px solid var(--borde);border-radius:18px;padding:20px;margin-bottom:13px;
+    box-shadow:0 16px 38px -26px rgba(0,0,0,.9)
+  }
+
+  button{font-family:inherit;font-size:14.5px;font-weight:600;border:0;border-radius:11px;
+         padding:12px 18px;cursor:pointer;transition:opacity .15s,background .15s}
+  button:disabled{opacity:.5;cursor:default}
+  .primario{background:linear-gradient(135deg,var(--oro),#BE9951);color:#13233A;width:100%}
+  .secundario{background:transparent;color:var(--crema-sutil);border:1px solid rgba(247,242,231,.18)}
+  .mini{font-size:12px;padding:7px 12px;border-radius:8px}
+
+  input{font-family:inherit;font-size:16px;color:var(--crema);width:100%;
+    background:rgba(0,0,0,.3);border:1px solid rgba(247,242,231,.16);border-radius:11px;padding:14px}
+  select{font-family:inherit;font-size:15px;color:var(--crema);width:100%;
+    background:rgba(0,0,0,.3);border:1px solid rgba(247,242,231,.16);border-radius:11px;padding:13px}
+  input:focus,select:focus{outline:0;border-color:var(--oro)}
+  select option{background:#17304E;color:#F7F2E7}
+
+  /* ---------- cabecera ---------- */
+  .cabecera{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:16px;gap:12px}
+  .filigrana{color:var(--oro);letter-spacing:.3em;font-size:11px;margin:0 0 4px}
+
+  /* ---------- pestañas ---------- */
+  .pestanas{display:flex;gap:4px;background:rgba(0,0,0,.3);border-radius:13px;padding:5px;margin-bottom:15px}
+  .pestanas button{flex:1;background:none;color:var(--crema-sutil);padding:11px 4px;font-size:13px;border-radius:9px}
+  .pestanas button.activa{background:rgba(217,180,106,.17);color:var(--oro-claro)}
+
+  /* ---------- filtros ---------- */
+  .filtros{display:flex;gap:7px;margin-bottom:14px;flex-wrap:wrap}
+  .filtros button{
+    background:rgba(0,0,0,.26);color:var(--crema-sutil);
+    border:1px solid rgba(247,242,231,.14);border-radius:999px;
+    padding:8px 15px;font-size:12.5px;font-weight:600
+  }
+  .filtros button.activa{background:rgba(217,180,106,.17);color:var(--oro-claro);border-color:var(--borde)}
+
+  /* ---------- totales ---------- */
+  .rejilla{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+  .casilla{background:rgba(0,0,0,.26);border:1px solid var(--borde);border-radius:14px;padding:14px 6px;text-align:center}
+  .casilla .cifra{font-family:'Cormorant Garamond',Georgia,serif;font-size:30px;line-height:1;color:var(--oro-claro)}
+  .casilla .pie{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--crema-sutil);margin-top:5px}
+
+  /* ---------- fase ---------- */
+  .fase-ahora{display:flex;align-items:center;gap:10px;font-size:20px;
+    font-family:'Cormorant Garamond',Georgia,serif;margin-bottom:4px;flex-wrap:wrap}
+  .insignia{font-size:10px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;
+    padding:4px 9px;border-radius:6px;font-family:'Inter',sans-serif}
+  .i-auto{background:rgba(111,191,149,.17);color:var(--verde)}
+  .i-manual{background:rgba(217,180,106,.18);color:var(--oro-claro)}
+
+  /* ---------- momentos ---------- */
+  .momento{margin-bottom:13px}
+  .momento-fila{display:flex;justify-content:space-between;align-items:baseline;font-size:13.5px;margin-bottom:6px;gap:10px}
+  .momento-fila .nom{color:var(--crema)}
+  .momento-fila .num{color:var(--crema-sutil);font-size:12px;white-space:nowrap}
+  .riel{height:8px;background:rgba(0,0,0,.34);border-radius:99px;overflow:hidden;display:flex}
+  .riel i{display:block;height:100%}
+  .riel .f{background:linear-gradient(90deg,var(--oro),var(--oro-claro))}
+  .riel .v{background:rgba(185,194,209,.5)}
+  .leyenda{display:flex;gap:16px;font-size:11.5px;color:var(--crema-sutil);margin-top:14px}
+  .punto{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+
+  /* ---------- galería ---------- */
+  /* En teléfono, dos columnas: las caras se distinguen. Más ancho, más columnas. */
+  .rejilla-galeria{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}
+  @media (min-width:560px){.rejilla-galeria{grid-template-columns:repeat(3,1fr)}}
+  @media (min-width:800px){.rejilla-galeria{grid-template-columns:repeat(4,1fr)}}
+  .marco{display:block;text-decoration:none;color:inherit}
+  .lienzo{
+    position:relative;aspect-ratio:1;border-radius:13px;overflow:hidden;
+    background:rgba(0,0,0,.32);border:1px solid var(--borde)
+  }
+  .lienzo img{width:100%;height:100%;object-fit:cover;display:block}
+  .lienzo .vacio{display:flex;align-items:center;justify-content:center;height:100%;font-size:25px;color:var(--oro);opacity:.6}
+  .sello-video{position:absolute;top:7px;right:7px;background:rgba(10,20,34,.78);color:var(--oro-claro);
+    font-size:9.5px;font-weight:700;letter-spacing:.08em;padding:3px 8px;border-radius:999px}
+  .pie-foto{font-size:11px;color:var(--crema-sutil);margin-top:6px;line-height:1.35}
+  .pie-foto b{color:var(--crema);font-weight:600;display:block}
+
+  /* ---------- tablas ---------- */
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th{text-align:left;font-size:10px;letter-spacing:.11em;text-transform:uppercase;
+     color:var(--crema-sutil);font-weight:600;padding:0 8px 10px;border-bottom:1px solid var(--borde)}
+  td{padding:12px 8px;border-bottom:1px solid rgba(247,242,231,.07);vertical-align:middle}
+  tr:last-child td{border-bottom:0}
+  .lugar{font-family:'Cormorant Garamond',Georgia,serif;font-size:22px;color:var(--crema-sutil);width:36px}
+  .lugar.podio{color:var(--oro)}
+  .pts{color:var(--oro);font-weight:700;text-align:right;white-space:nowrap}
+  .anulada td{opacity:.42;text-decoration:line-through}
+  a{color:var(--oro-claro)}
+  .envuelto{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+  #qr{display:flex;justify-content:center;background:#fff;padding:15px;border-radius:14px;margin:0 auto 13px;width:fit-content}
+  .aviso{background:rgba(217,180,106,.1);border:1px solid var(--borde);border-radius:12px;padding:14px;font-size:13.5px}
+  .error{background:rgba(226,135,155,.14);border-color:rgba(226,135,155,.4);color:var(--rojo)}
+  .fila-btn{display:flex;gap:8px;margin-top:12px}
+  .fila-btn button{flex:1}
+  .girando{width:17px;height:17px;border:2px solid rgba(247,242,231,.22);border-top-color:var(--oro);
+    border-radius:50%;animation:gira .7s linear infinite;margin:0 auto}
+  @keyframes gira{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="envoltura">
+
+  <!-- ===== ENTRANDO (cuando Revelio ya trae la clave) ===== -->
+  <section id="cargando" class="oculto">
+    <div class="carta" style="margin-top:60px;text-align:center;padding:54px 22px">
+      <p class="cintillo" style="margin-bottom:12px">Panel de novios</p>
+      <div class="girando" style="margin-bottom:16px"></div>
+      <p class="tenue" style="margin:0">Entrando…</p>
+    </div>
+  </section>
+
+  <!-- ===== CLAVE ===== -->
+  <section id="puerta">
+    <div class="carta" style="margin-top:40px">
+      <p class="filigrana">♥</p>
+      <h1 style="margin-bottom:6px">Panel de novios</h1>
+      <p class="tenue" style="margin:0 0 18px">Solo para ustedes dos.</p>
+      <input type="password" id="campo-clave" placeholder="Clave del panel" autocomplete="off">
+      <button class="primario" id="boton-abrir" style="margin-top:12px">Entrar</button>
+      <div id="error-clave" class="aviso error oculto" style="margin-top:14px"></div>
+    </div>
+  </section>
+
+  <!-- ===== PANEL ===== -->
+  <section id="panel" class="oculto">
+    <div class="cabecera">
+      <div>
+        <p class="filigrana">♥</p>
+        <h1 id="titulo-panel">Panel</h1>
+      </div>
+      <span class="tenue" id="sello-hora"></span>
+    </div>
+
+    <div class="pestanas">
+      <button data-vista="resumen" class="activa">Resumen</button>
+      <button data-vista="galeria">Galería</button>
+      <button data-vista="ranking">Ranking</button>
+      <button data-vista="entregas">Entregas</button>
+    </div>
+
+    <!-- ---------- RESUMEN ---------- -->
+    <div id="vista-resumen">
+      <div class="carta">
+        <p class="cintillo">Momento de la boda</p>
+        <div class="fase-ahora">
+          <span id="fase-nombre">—</span>
+          <span class="insignia" id="fase-modo"></span>
+        </div>
+        <p class="tenue" id="fase-nota" style="margin:0 0 15px"></p>
+        <select id="selector-fase"></select>
+        <p class="tenue" style="margin:10px 0 0">
+          En <b>automático</b> sigue las horas del itinerario. Si la boda se atrasa o se adelanta,
+          elige el momento a mano y todos reciben retos de ese momento.
+        </p>
+      </div>
+
+      <div class="carta">
+        <p class="cintillo">Cómo va</p>
+        <div class="rejilla">
+          <div class="casilla"><div class="cifra" id="t-invitados">0</div><div class="pie">Jugando</div></div>
+          <div class="casilla"><div class="cifra" id="t-entregas">0</div><div class="pie">Entregas</div></div>
+          <div class="casilla"><div class="cifra" id="t-fotos">0</div><div class="pie">Fotos</div></div>
+          <div class="casilla"><div class="cifra" id="t-videos">0</div><div class="pie">Videos</div></div>
+        </div>
+        <div class="fila-btn">
+          <button class="secundario" id="boton-carpeta">Ver álbum en Drive</button>
+          <button class="secundario" id="boton-registro">—</button>
+        </div>
+      </div>
+
+      <div class="carta">
+        <p class="cintillo">Qué dejó cada momento</p>
+        <div id="lista-momentos"></div>
+        <div class="leyenda">
+          <span><i class="punto" style="background:linear-gradient(90deg,#D9B46A,#F0D9A8)"></i>Fotos</span>
+          <span><i class="punto" style="background:rgba(185,194,209,.5)"></i>Videos</span>
+        </div>
+        <p class="tenue oculto" id="momentos-vacio" style="margin:12px 0 0">
+          Todavía no hay entregas. Aquí van a aparecer en cuanto empiecen a subir.
+        </p>
+      </div>
+
+      <div class="carta">
+        <p class="cintillo">Código QR para los invitados</p>
+        <div id="qr"></div>
+        <p class="tenue" id="texto-url" style="word-break:break-all;text-align:center;margin:0 0 12px"></p>
+        <button class="secundario" id="boton-descargar-qr" style="width:100%">Descargar el QR en PNG</button>
+      </div>
+    </div>
+
+    <!-- ---------- GALERÍA ---------- -->
+    <div id="vista-galeria" class="oculto">
+      <div class="carta">
+        <p class="cintillo">El álbum, según va llegando</p>
+        <div class="filtros" id="filtros-galeria">
+          <button data-tipo="todo" class="activa">Todo</button>
+          <button data-tipo="foto">Solo fotos</button>
+          <button data-tipo="video">Solo videos</button>
+        </div>
+
+        <div class="rejilla-galeria" id="rejilla-galeria"></div>
+
+        <div id="galeria-cargando" class="oculto" style="padding:26px 0">
+          <div class="girando"></div>
+        </div>
+        <p class="tenue oculto" id="galeria-vacia" style="margin:8px 0 0"></p>
+        <button class="secundario oculto" id="boton-mas" style="width:100%;margin-top:14px">Ver más</button>
+      </div>
+    </div>
+
+    <!-- ---------- RANKING ---------- -->
+    <div id="vista-ranking" class="oculto">
+      <div class="carta">
+        <p class="cintillo">Tabla completa</p>
+        <div class="envuelto">
+          <table>
+            <thead><tr><th></th><th>Invitado</th><th>Archivos</th><th style="text-align:right">Puntos</th></tr></thead>
+            <tbody id="cuerpo-ranking"></tbody>
+          </table>
+        </div>
+        <p class="tenue oculto" id="ranking-vacio" style="margin:14px 0 0">Todavía nadie se ha registrado.</p>
+        <p class="tenue" style="margin:16px 0 0">
+          Los invitados nunca ven esta tabla. Cada quien solo ve sus propios puntos. Empate: gana quien subió más archivos.
+        </p>
+      </div>
+    </div>
+
+    <!-- ---------- ENTREGAS ---------- -->
+    <div id="vista-entregas" class="oculto">
+      <div class="carta">
+        <p class="cintillo">Últimas entregas</p>
+        <div class="filtros" id="filtros-entregas">
+          <button data-tipo="todo" class="activa">Todo</button>
+          <button data-tipo="foto">Solo fotos</button>
+          <button data-tipo="video">Solo videos</button>
+        </div>
+        <div class="envuelto">
+          <table>
+            <thead><tr><th>Hora</th><th>Invitado</th><th>Reto</th><th></th><th></th></tr></thead>
+            <tbody id="cuerpo-entregas"></tbody>
+          </table>
+        </div>
+        <p class="tenue oculto" id="entregas-vacio" style="margin:14px 0 0">No hay entregas de ese tipo.</p>
+      </div>
+    </div>
+
+    <button class="secundario" id="boton-actualizar" style="width:100%;margin-top:4px">Actualizar</button>
+  </section>
+
+</div>
+
+<script>
+var LLAVE = 'boda_retos_clave_admin';
+// Revelio abre el panel con #k=CLAVE. El fragmento nunca viaja a ningún
+// servidor; se lee aquí, se guarda en el teléfono y se borra de la barra.
+var CLAVE_PRE = (function(){
+  var m = /[#&]k=([A-Za-z0-9_\-]{3,32})/.exec(location.hash || '');
+  if (m && history.replaceState) history.replaceState(null, '', location.pathname + location.search);
+  return m ? m[1] : '';
+})();
+
+var datos = null;
+var clave = '';
+var temporizador = null;
+var filtroEntregas = 'todo';
+var filtroGaleria = 'todo';
+var galeria = { items: [], desde: 0, hayMas: false, cargando: false, pedida: false };
+
+function $(id){ return document.getElementById(id); }
+function leerClave(){ try{ return localStorage.getItem(LLAVE) || ''; }catch(e){ return ''; } }
+function guardarClave(v){ try{ localStorage.setItem(LLAVE, v); }catch(e){} }
+
+function escapar(s){
+  return String(s).replace(/[&<>"']/g, function(c){
+    return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+  });
+}
+
+/* ============================================================
+ *  Arranque
+ * ============================================================ */
+window.addEventListener('DOMContentLoaded', function(){
+  $('boton-abrir').addEventListener('click', abrir);
+  $('campo-clave').addEventListener('keydown', function(e){ if(e.key==='Enter') abrir(); });
+  $('boton-actualizar').addEventListener('click', function(){ pedir('datos'); });
+
+  $('selector-fase').addEventListener('change', function(){ pedir('fase', { faseId: this.value }); });
+  $('boton-carpeta').addEventListener('click', function(){
+    if (datos && datos.carpetaUrl) window.open(datos.carpetaUrl, '_blank');
+  });
+  $('boton-registro').addEventListener('click', function(){
+    if (!datos) return;
+    if (confirm(datos.registroAbierto
+        ? 'Se cierra el registro. Nadie nuevo podrá entrar, los que ya están siguen jugando. ¿Seguro?'
+        : 'Se vuelve a abrir el registro. ¿Seguro?')) pedir('registro');
+  });
+  $('boton-descargar-qr').addEventListener('click', descargarQR);
+  $('boton-mas').addEventListener('click', function(){ pedirGaleria(false); });
+
+  document.querySelectorAll('.pestanas button').forEach(function(b){
+    b.addEventListener('click', function(){ cambiarVista(b.dataset.vista, b); });
+  });
+  conectarFiltros('filtros-galeria', function(t){
+    filtroGaleria = t;
+    galeria = { items: [], desde: 0, hayMas: false, cargando: false, pedida: false };
+    $('rejilla-galeria').innerHTML = '';
+    pedirGaleria(true);
+  });
+  conectarFiltros('filtros-entregas', function(t){ filtroEntregas = t; pintarEntregas(); });
+
+  var guardada = CLAVE_PRE || leerClave();
+  if (guardada){
+    clave = guardada;
+    $('puerta').classList.add('oculto');
+    $('cargando').classList.remove('oculto');
+    pedir('datos', {}, true);
+  }
+});
+
+function conectarFiltros(contenedor, alCambiar){
+  var caja = $(contenedor);
+  caja.querySelectorAll('button').forEach(function(b){
+    b.addEventListener('click', function(){
+      caja.querySelectorAll('button').forEach(function(x){ x.classList.remove('activa'); });
+      b.classList.add('activa');
+      alCambiar(b.dataset.tipo);
+    });
+  });
+}
+
+function abrir(){
+  clave = $('campo-clave').value.trim();
+  if (!clave) return;
+  pedir('datos', {}, true);
+}
+
+function cambiarVista(v, btn){
+  ['resumen','galeria','ranking','entregas'].forEach(function(x){
+    $('vista-' + x).classList.toggle('oculto', x !== v);
+  });
+  document.querySelectorAll('.pestanas button').forEach(function(b){ b.classList.remove('activa'); });
+  btn.classList.add('activa');
+  window.scrollTo(0, 0);
+  // La galería se pide hasta que la abren: las miniaturas pesan
+  if (v === 'galeria' && !galeria.pedida) pedirGaleria(true);
+}
+
+/* ============================================================
+ *  Llamadas al servidor
+ * ============================================================ */
+function pedir(accion, extra, esLogin){
+  var b = esLogin ? $('boton-abrir') : $('boton-actualizar');
+  var textoPrevio = b.textContent;
+  b.disabled = true; b.textContent = 'Cargando…';
+
+  llamarApi({ accion: 'admin', clave: clave, sub: accion, datos: extra || {} })
+    .then(function(r){
+      b.disabled = false; b.textContent = textoPrevio;
+      if (!r || r.error){
+        if (esLogin){
+          $('cargando').classList.add('oculto');
+          $('puerta').classList.remove('oculto');
+          $('error-clave').textContent = r && r.error ? r.error : 'No se pudo entrar.';
+          $('error-clave').classList.remove('oculto');
+        } else alert(r && r.error ? r.error : 'No se pudo cargar.');
+        return;
+      }
+      guardarClave(clave);
+      datos = r;
+      $('cargando').classList.add('oculto');
+      $('puerta').classList.add('oculto');
+      $('panel').classList.remove('oculto');
+      pintar(r);
+      if (!temporizador) temporizador = setInterval(function(){ pedir('datos'); }, 45000);
+    })
+    .catch(function(){
+      b.disabled = false; b.textContent = textoPrevio;
+      if (esLogin){
+        $('cargando').classList.add('oculto');
+        $('puerta').classList.remove('oculto');
+        $('error-clave').textContent = 'No hay conexión. Revisa tu señal e intenta otra vez.';
+        $('error-clave').classList.remove('oculto');
+      } else alert('No hay conexión. Intenta otra vez.');
+    });
+}
+
+function pedirGaleria(reiniciar){
+  if (galeria.cargando) return;
+  galeria.cargando = true;
+  galeria.pedida = true;
+  $('galeria-vacia').classList.add('oculto');
+  $('boton-mas').classList.add('oculto');
+  $('galeria-cargando').classList.remove('oculto');
+
+  llamarApi({ accion: 'admin', clave: clave, sub: 'galeria',
+              datos: { tipo: filtroGaleria, desde: reiniciar ? 0 : galeria.desde } })
+    .then(function(r){
+      galeria.cargando = false;
+      $('galeria-cargando').classList.add('oculto');
+      if (!r || r.error){ alert(r && r.error ? r.error : 'No se pudo cargar la galería.'); return; }
+      if (reiniciar) galeria.items = [];
+      galeria.items = galeria.items.concat(r.items || []);
+      galeria.desde = (r.desde || 0) + (r.items || []).length;
+      galeria.hayMas = !!r.hayMas;
+      pintarGaleria();
+    })
+    .catch(function(){
+      galeria.cargando = false;
+      $('galeria-cargando').classList.add('oculto');
+      alert('No hay conexión. Intenta otra vez.');
+    });
+}
+
+function anular(id){
+  if (!confirm('Se le quitan los puntos de esa entrega al invitado. El archivo se queda en Drive. ¿Seguro?')) return;
+  pedir('anular', { entregaId: id });
+}
+
+/* ============================================================
+ *  Pintado
+ * ============================================================ */
+function pintar(r){
+  $('titulo-panel').textContent = r.novios || 'Panel de novios';
+  $('sello-hora').textContent = r.hora;
+
+  var f = r.faseActual;
+  $('fase-nombre').textContent = f ? ((f.emoji ? f.emoji + ' ' : '') + f.nombre) : 'Fuera de horario';
+  var ins = $('fase-modo');
+  ins.textContent = r.modoFase === 'MANUAL' ? 'Manual' : 'Automático';
+  ins.className = 'insignia ' + (r.modoFase === 'MANUAL' ? 'i-manual' : 'i-auto');
+  $('fase-nota').textContent = f
+    ? 'Los invitados están recibiendo retos de este momento.'
+    : 'Nadie está recibiendo retos ahora mismo.';
+
+  var sel = $('selector-fase');
+  sel.innerHTML = '<option value="AUTO">Automático, según el itinerario</option>' +
+    r.fases.map(function(x){
+      return '<option value="' + x.id + '">' + escapar((x.emoji ? x.emoji + ' ' : '') + x.nombre) +
+             (x.inicio ? '  (' + x.inicio + '–' + x.fin + ')' : '') + '</option>';
+    }).join('');
+  sel.value = (r.modoFase === 'MANUAL') ? r.faseManual : 'AUTO';
+
+  $('t-invitados').textContent = r.totales.invitados;
+  $('t-entregas').textContent  = r.totales.entregas;
+  $('t-fotos').textContent     = r.totales.fotos;
+  $('t-videos').textContent    = r.totales.videos;
+  $('boton-registro').textContent = r.registroAbierto ? 'Cerrar registro' : 'Abrir registro';
+
+  pintarMomentos(r.fases);
+  pintarRanking(r.ranking);
+  pintarEntregas();
+  // El QR depende de una librería externa: si falla, no debe tumbar el resto
+  // del panel ni dejarlo sin actualización automática.
+  try { pintarQR(r.urlPublica || new URL('./', location.href).href); } catch (err){}
+}
+
+function pintarMomentos(fases){
+  var tope = 1;
+  fases.forEach(function(f){ tope = Math.max(tope, (f.fotos || 0) + (f.videos || 0)); });
+  var hayAlgo = fases.some(function(f){ return (f.fotos || 0) + (f.videos || 0) > 0; });
+  $('momentos-vacio').classList.toggle('oculto', hayAlgo);
+
+  $('lista-momentos').innerHTML = fases.map(function(f){
+    var fo = f.fotos || 0, vi = f.videos || 0, total = fo + vi;
+    return '<div class="momento">' +
+      '<div class="momento-fila">' +
+        '<span class="nom">' + escapar((f.emoji ? f.emoji + ' ' : '') + f.nombre) + '</span>' +
+        '<span class="num">' + (total ? (fo + ' fotos · ' + vi + ' videos') : '—') + '</span>' +
+      '</div>' +
+      '<div class="riel">' +
+        '<i class="f" style="width:' + (fo / tope * 100) + '%"></i>' +
+        '<i class="v" style="width:' + (vi / tope * 100) + '%"></i>' +
+      '</div></div>';
+  }).join('');
+}
+
+function pintarRanking(ranking){
+  $('ranking-vacio').classList.toggle('oculto', ranking.length > 0);
+  $('cuerpo-ranking').innerHTML = ranking.map(function(g, i){
+    return '<tr><td class="lugar' + (i < 3 ? ' podio' : '') + '">' + (i + 1) + '</td>' +
+      '<td>' + escapar(g.nombre) + '</td>' +
+      '<td class="tenue">' + g.archivos + '</td>' +
+      '<td class="pts">' + g.puntos + '</td></tr>';
+  }).join('');
+}
+
+function pintarEntregas(){
+  if (!datos) return;
+  var lista = datos.entregas.filter(function(e){
+    return filtroEntregas === 'todo' || String(e.tipo) === filtroEntregas;
+  });
+  $('entregas-vacio').classList.toggle('oculto', lista.length > 0);
+  $('cuerpo-entregas').innerHTML = lista.map(function(e){
+    return '<tr class="' + (e.valida ? '' : 'anulada') + '">' +
+      '<td class="tenue" style="white-space:nowrap">' + escapar(String(e.fecha).slice(11,16)) + '</td>' +
+      '<td>' + escapar(e.nombre) + '</td>' +
+      '<td>' + escapar(e.titulo) +
+        ' <span class="tenue">(' + (e.tipo === 'video' ? 'video' : 'foto') + ' · ' +
+        (e.puntos > 0 ? '+' + e.puntos : 'sin puntos, tope') + ')</span></td>' +
+      '<td>' + (e.enlace ? '<a href="' + escapar(e.enlace) + '" target="_blank">Ver</a>' : '') + '</td>' +
+      '<td>' + (e.valida
+        ? '<button class="secundario mini" onclick="anular(\'' + escapar(e.id) + '\')">Anular</button>'
+        : '<span class="tenue">anulada</span>') + '</td></tr>';
+  }).join('');
+}
+
+function pintarGaleria(){
+  var caja = $('rejilla-galeria');
+  caja.innerHTML = galeria.items.map(function(it){
+    var interior = it.miniatura
+      ? '<img src="' + it.miniatura + '" alt="' + escapar(it.titulo) + '" loading="lazy">'
+      : '<div class="vacio">' + (it.tipo === 'video' ? '▶' : '◧') + '</div>';
+    var sello = it.tipo === 'video' ? '<span class="sello-video">VIDEO</span>' : '';
+    return '<a class="marco" href="' + escapar(it.enlace) + '" target="_blank">' +
+             '<div class="lienzo">' + interior + sello + '</div>' +
+             '<div class="pie-foto"><b>' + escapar(it.nombre.split(' ')[0]) + '</b>' +
+               escapar(it.titulo) + '</div>' +
+           '</a>';
+  }).join('');
+
+  var vacia = galeria.items.length === 0;
+  $('galeria-vacia').classList.toggle('oculto', !vacia);
+  if (vacia){
+    $('galeria-vacia').textContent = filtroGaleria === 'video'
+      ? 'Todavía no hay videos.'
+      : (filtroGaleria === 'foto' ? 'Todavía no hay fotos.' : 'Todavía no hay nada en el álbum.');
+  }
+  $('boton-mas').classList.toggle('oculto', !galeria.hayMas);
+}
+
+function pintarQR(url){
+  var caja = $('qr');
+  function recado(texto){
+    caja.innerHTML = '<p style="color:#13233A;font-size:12.5px;margin:0;max-width:210px;text-align:center">' +
+                     texto + '</p>';
+  }
+  if (!url){
+    recado('Todavía no has desplegado la app como aplicación web.');
+    $('texto-url').textContent = '';
+    return;
+  }
+  $('texto-url').textContent = url;
+  if (caja.dataset.url === url) return;
+
+  // La librería del QR viene de internet. Si no cargó, el panel sigue
+  // funcionando igual: la liga está escrita abajo y se puede copiar.
+  if (typeof QRCode === 'undefined'){
+    recado('No se pudo cargar el generador de QR. Revisa tu conexión o genera el QR desde la computadora.');
+    return;
+  }
+  try {
+    caja.dataset.url = url;
+    caja.innerHTML = '';
+    new QRCode(caja, {
+      text: url, width: 220, height: 220,
+      colorDark: '#0E1E33', colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  } catch (err){
+    caja.dataset.url = '';
+    recado('No se pudo dibujar el QR aquí. Genéralo desde la computadora.');
+  }
+}
+
+function descargarQR(){
+  var lienzo = $('qr').querySelector('canvas');
+  if (!lienzo){ alert('El QR todavía no se generó.'); return; }
+  var a = document.createElement('a');
+  a.href = lienzo.toDataURL('image/png');
+  a.download = 'QR-retos-boda.png';
+  a.click();
+}
+</script>
+</body>
+</html>

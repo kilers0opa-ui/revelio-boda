@@ -62,6 +62,7 @@
     color:var(--oro-claro);border-radius:999px;padding:7px 15px;font-size:12.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
 
   .reto-titulo{font-family:'Cormorant Garamond',Georgia,serif;font-size:29px;line-height:1.15;margin:0 0 8px}
+  #reto-titulo{font-size:26px;line-height:1.2;margin-bottom:14px}
   .reto-desc{font-size:15.5px;color:#E0D6CA;margin:0 0 14px}
   .valores{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
   .valor{font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:5px 10px;border-radius:7px}
@@ -173,8 +174,8 @@
     <div class="carta">
       <p class="cintillo">Cómo funciona</p>
       <p class="tenue" style="margin:0 0 18px">
-        En cada momento de la boda te espera un reto. Súbele todas las fotos y videos que puedas:
-        entre más, mejor. Antes del happening revelamos quién ganó.
+        En cada momento de la boda te esperan varios retos, uno a la vez. Sube todas las fotos y
+        videos que puedas: entre más, mejor. Antes del happening revelamos quién ganó.
       </p>
       <input type="text" id="campo-nombre" placeholder="Tu nombre y apellido" autocomplete="name" autocapitalize="words" maxlength="60">
       <button class="primario" id="boton-entrar">Empezar</button>
@@ -214,7 +215,7 @@
     <!-- reto del momento -->
     <div class="carta" id="caja-reto">
       <div class="velo"></div>
-      <p class="cintillo">Tu reto de este momento</p>
+      <p class="cintillo" id="reto-tema">Tu reto de este momento</p>
       <h2 class="reto-titulo" id="reto-titulo"></h2>
       <p class="reto-desc" id="reto-desc"></p>
       <div id="bloque-ideas">
@@ -414,8 +415,8 @@ function pintar(){
     : 'Súbelo aquí: todas las fotos y videos llegan al álbum.';
   $('bloque-avance').classList.toggle('oculto', !abierto);
 
-  pintarProximo('reto-proximo', r.proximo, r.reto ? 'Tu siguiente reto se abre a las ' : null);
-  pintarProximo('espera-proximo', r.proximo, r.fase ? 'Tu siguiente reto se abre a las ' : 'El primer reto se abre a las ');
+  pintarProximo('reto-proximo', r.proximo, r.reto && !r.hayMasRetos ? 'Los retos del siguiente momento se abren a las ' : null);
+  pintarProximo('espera-proximo', r.proximo, r.fase ? 'Los retos del siguiente momento se abren a las ' : 'Los primeros retos se abren a las ');
 
 
   if (r.premio){ $('texto-premio').textContent = r.premio; $('caja-premio').classList.remove('oculto'); }
@@ -424,8 +425,10 @@ function pintar(){
   if (r.reto){
     $('caja-reto').classList.remove('oculto');
     $('caja-espera').classList.add('oculto');
+    $('reto-tema').textContent = (r.fase && r.fase.tema) ? '✦ ' + r.fase.tema : 'Tu reto de este momento';
     $('reto-titulo').textContent = r.reto.titulo;
-    $('reto-desc').textContent = r.reto.descripcion;
+    $('reto-desc').textContent = r.reto.descripcion || '';
+    $('reto-desc').classList.toggle('oculto', !r.reto.descripcion);
     var ideas = r.reto.ideas || [];
     $('bloque-ideas').classList.toggle('oculto', !ideas.length);
     var ul = $('reto-ideas'); ul.innerHTML = '';
@@ -521,57 +524,114 @@ async function procesar(){
   await cargarEstado(true);
 }
 
+/* Archivos completos, en su calidad original. Hasta 8 MB van en una sola
+   llamada; más grandes, por partes de 8 MB: si la señal se cae, se pregunta
+   hasta dónde llegó y se sigue de ahí. No hay límite de tamaño. */
+var UNA_LLAMADA = 8 * 1048576;
+var ESPERAS = [0, 1500, 4000, 9000];
+
 async function subirUno(it){
-  var g = estado.limites || { maxFotoMB: 12, maxVideoMB: 15 };
+  var g = estado.limites || {};
   var f = it.archivo;
-  if (it.esVideo && f.size > g.maxVideoMB * 1048576){
+  var max = it.esVideo ? g.maxVideoMB : g.maxFotoMB;
+  if (max > 0 && f.size > max * 1048576){
     it.estado = 'error'; it.nota = 'Muy pesado';
-    errorReto('Un video pesa ' + (f.size / 1048576).toFixed(1) + ' MB y el máximo es ' + g.maxVideoMB +
-              ' MB. Graba uno más corto, de 10 a 20 segundos.');
+    errorReto('Ese archivo pesa ' + (f.size / 1048576).toFixed(0) + ' MB y el máximo es ' + max + ' MB.');
     return;
   }
 
-  var paquete;
+  var meta;
   try {
-    var huella = await sha256(f);
-    var contenido = it.esVideo ? await aBase64(f) : await prepararFoto(f, g.maxFotoMB);
-    paquete = {
-      destino: it.destino, asigId: it.asigId, hash: huella,
-      mimeType: contenido.mimeType, extension: contenido.extension, datos: contenido.base64
+    meta = {
+      destino: it.destino, asigId: it.asigId, hash: await huellaDe(f),
+      mimeType: f.type || (it.esVideo ? 'video/mp4' : 'image/jpeg'),
+      extension: ((f.name || '').split('.').pop() || (it.esVideo ? 'mp4' : 'jpg')).toLowerCase()
     };
   } catch (e){
     it.estado = 'error'; it.nota = 'No se leyó';
     return;
   }
 
-  // hasta 4 intentos: la señal en un salón lleno va y viene
-  var esperas = [0, 1500, 4000, 9000];
-  for (var i = 0; i < esperas.length; i++){
-    if (esperas[i]) await dormir(esperas[i]);
+  var r;
+  try {
+    r = f.size <= UNA_LLAMADA ? await subirEntero(f, meta) : await subirPorPartes(it, f, meta);
+  } catch (e){
+    r = { error: 'Sin señal' };
+  }
+  it.progreso = null;
+  if (r && r.error === 'NO_REGISTRADO'){ it.estado = 'error'; olvidarGuest(); location.reload(); return; }
+  if (!r || r.error){ it.estado = 'error'; it.nota = /señal/i.test((r && r.error) || '') ? 'Sin señal' : 'Falló'; return; }
+  if (r.duplicado){ it.estado = 'dup'; it.nota = 'Repetida'; return; }
+
+  it.estado = 'listo';
+  it.nota = '✓ Lista';
+  estado.archivos = r.archivos;
+  var eraCompleto = !!estado.retoCompleto;
+  if ((r.destino || it.destino) === 'reto'){
+    estado.retoArchivos = (estado.retoArchivos || 0) + 1;
+    if (typeof r.avance === 'number') estado.retoAvance = r.avance;
+    estado.retoCompleto = !!r.completo;
+  }
+  actualizarMarcador(!eraCompleto && estado.retoCompleto);
+}
+
+/* Reintenta mientras sea falla de red o del servidor; un "no" claro se respeta. */
+async function conReintentos(pedir){
+  var ultimo = null;
+  for (var i = 0; i < ESPERAS.length; i++){
+    if (ESPERAS[i]) await dormir(ESPERAS[i]);
     try {
-      var r = await llamarApi({ accion: 'subir', guestId: guestId(), archivo: paquete });
-      if (r && r.error === 'NO_REGISTRADO'){ it.estado = 'error'; olvidarGuest(); location.reload(); return; }
-      if (!r || r.error){
-        if (i === esperas.length - 1){ it.estado = 'error'; it.nota = 'Falló'; }
+      var r = await pedir();
+      if (r && (!r.error || r.error === 'NO_REGISTRADO' || r.error === 'SESION_VENCIDA')) return r;
+      ultimo = r;
+    } catch (e){ ultimo = { error: 'Sin señal' }; }
+  }
+  return ultimo;
+}
+
+async function subirEntero(f, meta){
+  var datos = await leerBase64(f);
+  return conReintentos(function(){
+    return llamarApi({ accion: 'subir', guestId: guestId(), archivo: Object.assign({ datos: datos }, meta) });
+  });
+}
+
+async function subirPorPartes(it, f, meta){
+  for (var vuelta = 0; vuelta < 2; vuelta++){          // una segunda vuelta si Drive venció la subida
+    var ini = await conReintentos(function(){
+      return llamarApi({ accion: 'iniciar', guestId: guestId(), archivo: Object.assign({ tamano: f.size }, meta) });
+    });
+    if (!ini || ini.error || ini.duplicado) return ini;
+    var token = ini.token, trozo = ini.trozo || UNA_LLAMADA, pos = 0, fallos = 0;
+    it.progreso = 0; pintarCola();
+
+    while (true){
+      var r = null;
+      try {
+        var datos = await leerBase64(f.slice(pos, Math.min(f.size, pos + trozo)));
+        r = await llamarApi({ accion: 'trozo', guestId: guestId(), token: token, inicio: pos, datos: datos });
+      } catch (e){ r = null; }
+
+      if (r && !r.error && typeof r.siguiente !== 'number') return r;          // terminó
+      if (r && r.error === 'NO_REGISTRADO') return r;
+      if (r && r.error === 'SESION_VENCIDA') break;
+      if (r && !r.error){                                                      // parte recibida
+        pos = r.siguiente; fallos = 0;
+        it.progreso = pos / f.size; pintarCola();
         continue;
       }
-      if (r.duplicado){ it.estado = 'dup'; it.nota = 'Repetida'; return; }
-
-      it.estado = 'listo';
-      it.nota = '✓ Lista';
-      estado.archivos = r.archivos;
-      var eraCompleto = !!estado.retoCompleto;
-      if ((r.destino || it.destino) === 'reto'){
-        estado.retoArchivos = (estado.retoArchivos || 0) + 1;
-        if (typeof r.avance === 'number') estado.retoAvance = r.avance;
-        estado.retoCompleto = !!r.completo;
-      }
-      actualizarMarcador(!eraCompleto && estado.retoCompleto);
-      return;
-    } catch (e){
-      if (i === esperas.length - 1){ it.estado = 'error'; it.nota = 'Sin señal'; }
+      // Se cayó la señal: esperar y preguntar hasta dónde llegó
+      if (++fallos > 6) return { error: 'Sin señal' };
+      await dormir([1500, 4000, 8000, 15000, 25000, 40000][fallos - 1]);
+      try {
+        var q = await llamarApi({ accion: 'trozo', guestId: guestId(), token: token });
+        if (q && !q.error && typeof q.siguiente === 'number'){ pos = q.siguiente; it.progreso = pos / f.size; pintarCola(); }
+        else if (q && !q.error) return q;                                     // ya había terminado
+        else if (q && q.error === 'SESION_VENCIDA') break;
+      } catch (e){}
     }
   }
+  return { error: 'Falló' };
 }
 
 function actualizarMarcador(retoRecienCumplido){
@@ -589,7 +649,8 @@ function pintarCola(){
     var piezas = cola.filter(function(it){ return it.destino === dest; });
     caja.innerHTML = piezas.map(function(it){
       var interior = it.vista ? '<img src="' + it.vista + '" alt="">' : '<div class="icono-video">▶</div>';
-      var sello = { espera: 'En fila', subiendo: 'Subiendo', listo: it.nota, dup: it.nota, error: it.nota }[it.estado] || '';
+      var subiendo = typeof it.progreso === 'number' ? 'Subiendo ' + Math.floor(it.progreso * 100) + '%' : 'Subiendo';
+      var sello = { espera: 'En fila', subiendo: subiendo, listo: it.nota, dup: it.nota, error: it.nota }[it.estado] || '';
       var reintentar = it.estado === 'error' ? ' onclick="reintentar(' + it.id + ')"' : '';
       return '<div class="pieza ' + it.estado + '"' + reintentar + '>' + interior + '<span class="sello">' + sello + '</span></div>';
     }).join('');
@@ -673,67 +734,32 @@ function errorReto(t){
 /* ============================================================
  *  Archivos: huella, compresión y base64
  * ============================================================ */
-async function sha256(f){
-  var buf = await f.arrayBuffer();
+/* Huella para detectar copias exactas. Hasta 8 MB: SHA-256 del archivo
+   completo. Más grande: del tamaño y los primeros y últimos 4 MB, para no
+   cargar un video de 1 GB entero en la memoria del teléfono. */
+async function huellaDe(f){
+  var buf;
+  if (f.size <= UNA_LLAMADA){
+    buf = await f.arrayBuffer();
+  } else {
+    var M = 4 * 1048576;
+    var partes = [new TextEncoder().encode('v1|' + f.size + '|'),
+                  new Uint8Array(await f.slice(0, M).arrayBuffer()),
+                  new Uint8Array(await f.slice(f.size - M).arrayBuffer())];
+    buf = new Uint8Array(partes.reduce(function(n, p){ return n + p.length; }, 0));
+    var k = 0;
+    partes.forEach(function(p){ buf.set(p, k); k += p.length; });
+  }
   var hash = await crypto.subtle.digest('SHA-256', buf);
   return Array.from(new Uint8Array(hash)).map(function(b){ return ('0' + b.toString(16)).slice(-2); }).join('');
 }
 
-function aBase64(f){
+function leerBase64(blob){
   return new Promise(function(resolve, reject){
     var fr = new FileReader();
-    fr.onload = function(){
-      var s = String(fr.result);
-      resolve({
-        base64: s.slice(s.indexOf(',') + 1),
-        mimeType: f.type || 'video/mp4',
-        extension: ((f.name || '').split('.').pop() || 'mp4').toLowerCase()
-      });
-    };
+    fr.onload = function(){ var s = String(fr.result); resolve(s.slice(s.indexOf(',') + 1)); };
     fr.onerror = function(){ reject(new Error('No se pudo leer el archivo.')); };
-    fr.readAsDataURL(f);
-  });
-}
-
-/* Comprime la foto en el teléfono. Si el formato no se deja (HEIC raro),
-   se manda el original mientras no pase del máximo. */
-async function prepararFoto(f, maxMB){
-  try {
-    return await comprimir(f, 2048, 0.85);
-  } catch (e){
-    if (f.size <= maxMB * 1048576) return aBase64(f);
-    throw e;
-  }
-}
-
-async function comprimir(f, maxLado, calidad){
-  var bmp = await cargarBitmap(f);
-  var w = bmp.width, h = bmp.height;
-  var k = Math.min(1, maxLado / Math.max(w, h));
-  w = Math.round(w * k); h = Math.round(h * k);
-  var lienzo = document.createElement('canvas');
-  lienzo.width = w; lienzo.height = h;
-  var ctx = lienzo.getContext('2d');
-  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h);
-  ctx.drawImage(bmp, 0, 0, w, h);
-  if (bmp.close) bmp.close();
-  var url = lienzo.toDataURL('image/jpeg', calidad);
-  return { base64: url.split(',')[1], mimeType: 'image/jpeg', extension: 'jpg' };
-}
-
-/* createImageBitmap respeta la rotación del iPhone; si no hay, se usa Image. */
-function cargarBitmap(f){
-  if (window.createImageBitmap){
-    return createImageBitmap(f, { imageOrientation: 'from-image' }).catch(function(){ return cargarImagen(f); });
-  }
-  return cargarImagen(f);
-}
-function cargarImagen(f){
-  return new Promise(function(resolve, reject){
-    var img = new Image(), url = URL.createObjectURL(f);
-    img.onload = function(){ URL.revokeObjectURL(url); resolve(img); };
-    img.onerror = function(){ URL.revokeObjectURL(url); reject(new Error('No se pudo leer la imagen.')); };
-    img.src = url;
+    fr.readAsDataURL(blob);
   });
 }
 

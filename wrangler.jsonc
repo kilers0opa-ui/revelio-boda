@@ -1,0 +1,10 @@
+// Publica este repositorio en Cloudflare como sitio estático (sin código de servidor).
+// GitHub Pages sigue funcionando igual; esto solo agrega una segunda dirección.
+{
+  "name": "revelio-boda",
+  "compatibility_date": "2025-09-01",
+  "assets": {
+    "directory": "./",
+    "not_found_handling": "404-page"
+  }
+}

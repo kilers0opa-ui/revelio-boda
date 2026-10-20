@@ -89,6 +89,7 @@
     padding:4px 9px;border-radius:6px;font-family:'Inter',sans-serif}
   .i-auto{background:rgba(111,191,149,.17);color:var(--verde)}
   .i-manual{background:rgba(217,180,106,.18);color:var(--oro-claro)}
+  .i-cerrado{background:rgba(226,135,155,.16);color:var(--rojo)}
 
   /* ---------- momentos ---------- */
   .momento{margin-bottom:13px}
@@ -186,6 +187,19 @@
     <!-- ---------- RESUMEN ---------- -->
     <div id="vista-resumen">
       <div class="carta">
+        <p class="cintillo">Concurso</p>
+        <div class="fase-ahora">
+          <span id="concurso-estado">—</span>
+          <span class="insignia" id="concurso-modo"></span>
+        </div>
+        <p class="tenue" id="concurso-nota" style="margin:0"></p>
+        <div class="fila-btn">
+          <button class="secundario" id="boton-concurso">—</button>
+          <button class="secundario" id="boton-concurso-2">—</button>
+        </div>
+      </div>
+
+      <div class="carta">
         <p class="cintillo">Momento de la boda</p>
         <div class="fase-ahora">
           <span id="fase-nombre">—</span>
@@ -255,6 +269,11 @@
 
     <!-- ---------- RANKING ---------- -->
     <div id="vista-ranking" class="oculto">
+      <div class="carta oculto" id="caja-ganador" style="text-align:center">
+        <p class="cintillo" id="ganador-cintillo">Ganador</p>
+        <h1 id="ganador-nombre" style="margin:4px 0 6px">—</h1>
+        <p class="tenue" id="ganador-detalle" style="margin:0"></p>
+      </div>
       <div class="carta">
         <p class="cintillo">Tabla completa</p>
         <div class="envuelto">
@@ -342,6 +361,19 @@ window.addEventListener('DOMContentLoaded', function(){
     if (ok) pedir('registro');
   });
   $('boton-descargar-qr').addEventListener('click', descargarQR);
+  ['boton-concurso', 'boton-concurso-2'].forEach(function(id){
+    $(id).addEventListener('click', async function(){
+      var modo = this.dataset.modo;
+      if (!modo) return;
+      if (modo === 'VER'){ cambiarVista('ranking', document.querySelector('.pestanas [data-vista=ranking]')); return; }
+      var textos = {
+        CERRADO: ['Se cierra el concurso ahora. Los invitados pueden seguir subiendo fotos y videos para el álbum, pero ya no suman.', 'Cerrar concurso'],
+        ABIERTO: ['Se reabre el concurso y vuelven a sumar, aunque ya haya pasado la hora de cierre.', 'Reabrir'],
+        AUTO:    ['El concurso vuelve a cerrar solo a la hora programada.', 'Automático']
+      }[modo];
+      if (await preguntar(textos[0], { si: textos[1], no: 'Cancelar' })) pedir('concurso', { modo: modo });
+    });
+  });
   $('boton-mas').addEventListener('click', function(){ pedirGaleria(false); });
 
   document.querySelectorAll('.pestanas button').forEach(function(b){
@@ -493,6 +525,7 @@ function pintar(r){
   $('t-fotos').textContent     = r.totales.fotos;
   $('t-videos').textContent    = r.totales.videos;
   $('boton-registro').textContent = r.registroAbierto ? 'Cerrar registro' : 'Abrir registro';
+  pintarConcurso(r.concurso || { modo: 'AUTO', abierto: true });
 
   pintarMomentos(r.fases);
   pintarRanking(r.ranking);
@@ -500,6 +533,27 @@ function pintar(r){
   // El QR depende de una librería externa: si falla, no debe tumbar el resto
   // del panel ni dejarlo sin actualización automática.
   try { pintarQR(r.urlPublica || new URL('./', location.href).href); } catch (err){}
+}
+
+function pintarConcurso(c){
+  $('concurso-estado').textContent = c.abierto ? 'Abierto' : 'Cerrado';
+  var ins = $('concurso-modo');
+  ins.textContent = c.modo === 'AUTO' ? 'Automático' : 'Manual';
+  ins.className = 'insignia ' + (c.abierto ? (c.modo === 'AUTO' ? 'i-auto' : 'i-manual') : 'i-cerrado');
+  var hora = c.cierreHora || '';
+  $('concurso-nota').textContent = c.abierto
+    ? (c.modo === 'AUTO' && hora ? 'Cierra solo a las ' + hora + ' (' + c.cierre + '). ' : 'Sigue abierto hasta que lo cierren. ') +
+      'Los invitados no ven puntos; solo saben a qué hora cierra.'
+    : 'Ya no suma puntos: el ranking quedó listo para anunciar al ganador. Lo que suban ahora va directo al álbum.';
+  var b1 = $('boton-concurso'), b2 = $('boton-concurso-2');
+  if (c.abierto){
+    b1.textContent = 'Cerrar concurso ahora'; b1.dataset.modo = 'CERRADO';
+    if (c.modo === 'ABIERTO'){ b2.textContent = 'Volver a automático'; b2.dataset.modo = 'AUTO'; b2.classList.remove('oculto'); }
+    else b2.classList.add('oculto');
+  } else {
+    b1.textContent = 'Ver ganador'; b1.dataset.modo = 'VER';
+    b2.textContent = 'Reabrir concurso'; b2.dataset.modo = 'ABIERTO'; b2.classList.remove('oculto');
+  }
 }
 
 function pintarMomentos(fases){
@@ -524,6 +578,18 @@ function pintarMomentos(fases){
 
 function pintarRanking(ranking){
   $('ranking-vacio').classList.toggle('oculto', ranking.length > 0);
+  var primero = ranking[0], c = (datos && datos.concurso) || { abierto: true };
+  $('caja-ganador').classList.toggle('oculto', !primero || !(primero.puntos > 0));
+  if (primero){
+    var segundo = ranking[1];
+    $('ganador-cintillo').textContent = c.abierto ? 'Va ganando' : '🏆 Ganador';
+    $('ganador-nombre').textContent = primero.nombre;
+    $('ganador-detalle').textContent = primero.puntos + ' puntos · ' + primero.archivos + ' fotos y videos' +
+      (segundo && segundo.puntos === primero.puntos
+        ? '. Empate en puntos con ' + segundo.nombre + ': gana quien subió más archivos' +
+          (segundo.archivos === primero.archivos ? ' y, si también empatan, quien se registró primero.' : '.')
+        : '');
+  }
   $('cuerpo-ranking').innerHTML = ranking.map(function(g, i){
     return '<tr><td class="lugar' + (i < 3 ? ' podio' : '') + '">' + (i + 1) + '</td>' +
       '<td>' + escapar(g.nombre) + '</td>' +
@@ -544,7 +610,7 @@ function pintarEntregas(){
       '<td>' + escapar(e.nombre) + '</td>' +
       '<td>' + escapar(e.titulo) +
         ' <span class="tenue">(' + (e.tipo === 'video' ? 'video' : 'foto') + ' · ' +
-        (e.puntos > 0 ? '+' + e.puntos : 'sin puntos, tope') + ')</span></td>' +
+        (e.puntos > 0 ? '+' + e.puntos : 'sin puntos') + ')</span></td>' +
       '<td>' + (e.enlace ? '<a href="' + escapar(e.enlace) + '" target="_blank">Ver</a>' : '') + '</td>' +
       '<td>' + (e.valida
         ? '<button class="secundario mini" onclick="anular(\'' + escapar(e.id) + '\')">Anular</button>'

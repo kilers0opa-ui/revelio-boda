@@ -118,6 +118,17 @@
   .aviso{background:rgba(201,161,74,.09);border:1px solid var(--borde);border-radius:14px;padding:15px 17px;font-size:14.5px;color:#E0D6CA}
   .error{background:rgba(139,58,78,.16);border-color:rgba(224,144,159,.4);color:#F0B9C3}
 
+  .ideas-titulo{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--crema-sutil);font-weight:600;margin:0 0 8px}
+  .ideas{list-style:none;margin:0 0 16px;padding:0;display:grid;gap:7px}
+  .ideas li{position:relative;padding:9px 12px 9px 32px;background:rgba(0,0,0,.2);border:1px solid rgba(244,237,226,.08);
+    border-radius:11px;font-size:14.5px;line-height:1.4;color:#E6DCD0}
+  .ideas li::before{content:'✦';position:absolute;left:12px;top:9px;color:var(--oro);font-size:12px}
+  .proximo{display:flex;gap:10px;align-items:center;margin:16px 0 0;padding:12px 14px;border-radius:13px;
+    background:rgba(201,161,74,.07);border:1px dashed rgba(201,161,74,.35);font-size:13.5px;color:var(--crema-sutil)}
+  .proximo b{color:var(--oro-claro);font-weight:600}
+  .proximo .reloj{font-size:18px;flex:0 0 auto}
+  .cerrado{text-align:center;border-color:rgba(201,161,74,.45)}
+  .cerrado h2{font-size:25px;margin:0 0 6px}
   .pista{font-size:13.5px;color:var(--oro-claro);margin:-6px 0 16px;opacity:.9}
 
   /* Respuesta inmediata al pedir otro reto: el servidor tarda, la página no */
@@ -162,8 +173,8 @@
     <div class="carta">
       <p class="cintillo">Cómo funciona</p>
       <p class="tenue" style="margin:0 0 18px">
-        Te damos un reto según el momento de la boda. Súbele todas las fotos y videos que quieras
-        y, cuando lo termines, te llega otro. Al final de la noche revelamos quién ganó.
+        En cada momento de la boda te espera un reto. Súbele todas las fotos y videos que puedas:
+        entre más, mejor. Antes del happening revelamos quién ganó.
       </p>
       <input type="text" id="campo-nombre" placeholder="Tu nombre y apellido" autocomplete="name" autocapitalize="words" maxlength="60">
       <button class="primario" id="boton-entrar">Empezar</button>
@@ -188,6 +199,14 @@
       <span class="fase" id="indicador-fase"></span>
     </div>
 
+    <!-- concurso cerrado: se sigue subiendo para el álbum -->
+    <div class="carta cerrado oculto" id="caja-cerrado">
+      <p class="filigrana" style="margin-bottom:10px">✦</p>
+      <h2>El concurso ya cerró</h2>
+      <p class="tenue" style="margin:0">Gracias por tantas fotos y videos. Sigue subiendo los que tengas:
+        todo llega al álbum de los novios.</p>
+    </div>
+
     <div class="marcador">
       <div class="casilla"><div class="cifra" id="cifra-archivos">0</div><div class="pie">Fotos y videos que has subido</div></div>
     </div>
@@ -198,11 +217,15 @@
       <p class="cintillo">Tu reto de este momento</p>
       <h2 class="reto-titulo" id="reto-titulo"></h2>
       <p class="reto-desc" id="reto-desc"></p>
+      <div id="bloque-ideas">
+        <p class="ideas-titulo">Ideas para tus fotos y videos</p>
+        <ul class="ideas" id="reto-ideas"></ul>
+      </div>
       <p class="pista">Sube todas las fotos y videos que puedas de este reto.</p>
-      <div class="avance">
+      <div class="avance" id="bloque-avance">
         <div class="avance-texto"><span>Avance del reto</span><span id="reto-cuenta"></span></div>
         <div class="riel"><i id="reto-riel"></i></div>
-        <p class="lleno oculto" id="reto-lleno">¡Reto cumplido! Lo que subas aquí se sigue guardando en el álbum. Pasa al siguiente para recibir un reto nuevo.</p>
+        <p class="lleno oculto" id="reto-lleno"></p>
       </div>
 
       <input type="file" id="archivos-reto" accept="image/*,video/*" multiple>
@@ -211,11 +234,12 @@
       <div class="cola" id="cola-reto"></div>
       <p class="resumen-cola oculto" id="resumen-reto"></p>
 
-      <div class="fila-botones">
+      <div class="fila-botones" id="fila-botones">
         <button class="secundario" id="boton-siguiente">Siguiente reto →</button>
         <button class="secundario" id="boton-saltar">Cambiar de reto</button>
       </div>
       <div id="error-reto" class="aviso error oculto" style="margin-top:12px"></div>
+      <div class="proximo oculto" id="reto-proximo"><span class="reloj">🕰️</span><span></span></div>
     </div>
 
     <!-- sin retos disponibles en este momento -->
@@ -223,13 +247,14 @@
       <p class="cintillo">Por ahora</p>
       <p id="texto-espera" style="margin:0 0 16px"></p>
       <button class="secundario" id="boton-refrescar">Buscar reto nuevo</button>
+      <div class="proximo oculto" id="espera-proximo"><span class="reloj">🕰️</span><span></span></div>
     </div>
 
     <!-- fotos libres -->
     <div class="carta" id="caja-libres">
-      <h2 class="reto-titulo" style="font-size:27px">¿Quieres puntos extra?</h2>
+      <h2 class="reto-titulo" style="font-size:27px" id="libres-titulo">¿Quieres puntos extra?</h2>
       <p class="cintillo" style="margin-top:2px">Fotos libres</p>
-      <p class="tenue" style="margin:0 0 16px">
+      <p class="tenue" style="margin:0 0 16px" id="libres-texto">
         ¿Pasó algo que no entra en el reto? Súbelo aquí también y obtén puntos extra para ganar.
       </p>
       <input type="file" id="archivos-libres" accept="image/*,video/*" multiple>
@@ -241,10 +266,11 @@
     <div class="carta" id="caja-premio">
       <p class="cintillo">El premio</p>
       <p class="tenue" id="texto-premio" style="margin:0"></p>
+      <p class="pista oculto" id="texto-cierre" style="margin:10px 0 0"></p>
     </div>
 
     <p class="pie-nota">
-      No te decimos en qué lugar vas. Eso se revela al final de la noche.<br>
+      No te decimos en qué lugar vas. Eso se revela antes del happening.<br>
       <button class="fantasma" id="boton-salir">No soy <span id="nombre-salir"></span></button>
     </p>
   </section>
@@ -306,7 +332,20 @@ window.addEventListener('DOMContentLoaded', function(){
   });
 
   if (guestId()) cargarEstado(); else mostrar('pantalla-bienvenida');
+
+  // El momento cambia con el reloj: sin tocar nada, el reto nuevo aparece
+  // solo. Cada minuto y al volver a la página (pantalla apagada, otra app).
+  setInterval(refrescarSiSePuede, 60000);
+  document.addEventListener('visibilitychange', function(){
+    if (document.visibilityState === 'visible') refrescarSiSePuede();
+  });
 });
+
+function refrescarSiSePuede(){
+  if (!estado || !guestId() || document.visibilityState === 'hidden') return;
+  if (procesando || hayPendientes() || $('caja-reto').classList.contains('cambiando')) return;
+  cargarEstado(true);
+}
 
 /* ============================================================
  *  Registro y estado
@@ -337,9 +376,17 @@ async function cargarEstado(silencioso){
     var r = await llamarApi({ accion: 'estado', guestId: guestId() });
     if (!r || r.error === 'NO_REGISTRADO'){ olvidarGuest(); mostrar('pantalla-bienvenida'); return; }
     if (r.error){ if (!silencioso){ mostrar('pantalla-bienvenida'); avisoNombre(r.error); } return; }
+    var antes = estado ? estado.asigId : null;
+    var cambio = !!(estado && r.asigId !== antes);
+    if (cambio && !hayPendientes('reto')) limpiarCola('reto');
     estado = r;
     pintar();
     mostrar('pantalla-juego');
+    if (cambio && r.reto){
+      var caja = $('caja-reto');
+      caja.classList.remove('nuevo'); void caja.offsetWidth; caja.classList.add('nuevo');
+      brindis('Nuevo reto: ' + r.reto.titulo);
+    }
   } catch (e){
     if (!silencioso){ mostrar('pantalla-bienvenida'); avisoNombre('No se pudo conectar. Revisa tu señal y vuelve a entrar.'); }
   }
@@ -352,7 +399,23 @@ function pintar(){
   $('saludo').textContent = 'Hola, ' + primerNombre(r.nombre);
   $('nombre-salir').textContent = primerNombre(r.nombre);
   $('cifra-archivos').textContent = r.archivos;
-  $('indicador-fase').textContent = r.fase ? ((r.fase.emoji ? r.fase.emoji + '  ' : '') + r.fase.nombre) : '✨  Aún no empieza';
+  $('indicador-fase').textContent = r.fase ? ((r.fase.emoji ? r.fase.emoji + '  ' : '') + r.fase.nombre)
+    : (r.proximo ? '✨  Aún no empieza' : '🌙  Gracias por venir');
+
+  // concurso: abierto (con su hora de cierre) o cerrado (solo álbum)
+  var abierto = !r.concurso || r.concurso.abierto;
+  $('caja-cerrado').classList.toggle('oculto', abierto);
+  $('texto-cierre').classList.toggle('oculto', !(abierto && r.concurso && r.concurso.cierraA));
+  if (abierto && r.concurso && r.concurso.cierraA)
+    $('texto-cierre').textContent = 'El concurso cierra a las ' + r.concurso.cierraA + '. ¡Aprovecha!';
+  $('libres-titulo').textContent = abierto ? '¿Quieres puntos extra?' : '¿Pasó algo más?';
+  $('libres-texto').textContent = abierto
+    ? '¿Pasó algo que no entra en el reto? Súbelo aquí también y obtén puntos extra para ganar.'
+    : 'Súbelo aquí: todas las fotos y videos llegan al álbum.';
+  $('bloque-avance').classList.toggle('oculto', !abierto);
+
+  pintarProximo('reto-proximo', r.proximo, r.reto ? 'Tu siguiente reto se abre a las ' : null);
+  pintarProximo('espera-proximo', r.proximo, r.fase ? 'Tu siguiente reto se abre a las ' : 'El primer reto se abre a las ');
 
 
   if (r.premio){ $('texto-premio').textContent = r.premio; $('caja-premio').classList.remove('oculto'); }
@@ -363,6 +426,10 @@ function pintar(){
     $('caja-espera').classList.add('oculto');
     $('reto-titulo').textContent = r.reto.titulo;
     $('reto-desc').textContent = r.reto.descripcion;
+    var ideas = r.reto.ideas || [];
+    $('bloque-ideas').classList.toggle('oculto', !ideas.length);
+    var ul = $('reto-ideas'); ul.innerHTML = '';
+    ideas.forEach(function(t){ var li = document.createElement('li'); li.textContent = t; ul.appendChild(li); });
   } else {
     $('caja-reto').classList.add('oculto');
     $('caja-espera').classList.remove('oculto');
@@ -381,12 +448,26 @@ function pintarAvance(){
   $('reto-cuenta').textContent = n ? (n + (n === 1 ? ' subida' : ' subidas')) : '';
   $('reto-riel').style.width = Math.round(Math.min(1, r.retoAvance || 0) * 100) + '%';
   $('reto-lleno').classList.toggle('oculto', !r.retoCompleto);
+  $('reto-lleno').textContent = '¡Reto cumplido! Sigue subiendo: todo se guarda en el álbum.' +
+    (r.hayMasRetos ? ' O pasa al siguiente para recibir un reto nuevo.' : '');
+}
+
+function pintarProximo(id, p, frase){
+  var caja = $(id);
+  if (!p || !frase){ caja.classList.add('oculto'); return; }
+  caja.classList.remove('oculto');
+  var t = caja.lastElementChild; t.innerHTML = '';
+  t.appendChild(document.createTextNode(frase));
+  var b = document.createElement('b'); b.textContent = p.hora; t.appendChild(b);
+  t.appendChild(document.createTextNode(' · ' + (p.emoji ? p.emoji + ' ' : '') + p.nombre));
 }
 
 function pintarBotones(){
   var r = estado;
   var ocupado = hayPendientes('reto');
   var conArchivos = (r.retoArchivos || 0) > 0;
+  // Con un reto por momento no hay "siguiente": el nuevo llega solo con la hora
+  $('fila-botones').classList.toggle('oculto', !r.hayMasRetos);
   var bs = $('boton-siguiente');
   bs.disabled = ocupado || !conArchivos;
   bs.title = conArchivos ? '' : 'Sube al menos una foto o video para pasar al siguiente';

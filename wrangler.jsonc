@@ -3,6 +3,8 @@
 {
   "name": "revelio-boda",
   "compatibility_date": "2025-09-01",
+  "workers_dev": true,      // la dirección revelio-boda.kilers0opa.workers.dev
+  "preview_urls": false,
   "assets": {
     "directory": "./",
     "not_found_handling": "404-page"

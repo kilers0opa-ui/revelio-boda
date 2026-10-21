@@ -7,6 +7,10 @@
   "preview_urls": false,
   "assets": {
     "directory": "./",
-    "not_found_handling": "404-page"
+    // Las direcciones se quedan tal cual (/panel.html, no /panel): Revelio
+    // se guía por "panel.html" para saber si está en el panel o como invitado.
+    "html_handling": "none",
+    // "/" y cualquier dirección desconocida abren la página de invitados
+    "not_found_handling": "single-page-application"
   }
 }

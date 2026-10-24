@@ -68,7 +68,7 @@
 
   /* ---------- pestañas ---------- */
   .pestanas{display:flex;gap:4px;background:rgba(0,0,0,.3);border-radius:13px;padding:5px;margin-bottom:15px}
-  .pestanas button{flex:1;background:none;color:var(--crema-sutil);padding:11px 4px;font-size:13px;border-radius:9px}
+  .pestanas button{flex:1;background:none;color:var(--crema-sutil);padding:11px 2px;font-size:12.5px;border-radius:9px;min-width:0}
   .pestanas button.activa{background:rgba(217,180,106,.17);color:var(--oro-claro)}
 
   /* ---------- filtros ---------- */
@@ -121,6 +121,20 @@
   .lienzo .vacio{display:flex;align-items:center;justify-content:center;height:100%;font-size:25px;color:var(--oro);opacity:.6}
   .sello-video{position:absolute;top:7px;right:7px;background:rgba(10,20,34,.78);color:var(--oro-claro);
     font-size:9.5px;font-weight:700;letter-spacing:.08em;padding:3px 8px;border-radius:999px}
+  .estrella{position:absolute;top:6px;left:6px;width:34px;height:34px;padding:0;border-radius:50%;
+    background:rgba(10,20,34,.62);color:rgba(247,242,231,.75);font-size:18px;line-height:1;border:0;
+    display:flex;align-items:center;justify-content:center}
+  .estrella.si{background:rgba(217,180,106,.92);color:#1E1608}
+  .mensaje{padding:14px 0;border-bottom:1px solid rgba(247,242,231,.08)}
+  .mensaje:last-child{border-bottom:0}
+  .mensaje .quien{display:flex;justify-content:space-between;gap:10px;font-size:13px;margin-bottom:6px}
+  .mensaje .quien b{color:var(--oro-claro);font-weight:600}
+  .mensaje .texto{white-space:pre-wrap;font-size:15px;line-height:1.5;margin:0 0 8px}
+  .mensaje audio{width:100%}
+  .carpeta{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 0;border-bottom:1px solid rgba(247,242,231,.07);font-size:14px}
+  .carpeta:last-child{border-bottom:0}
+  .carpeta .num{color:var(--crema-sutil);font-size:12px;white-space:nowrap}
+  .carpeta a{white-space:nowrap;font-size:13px}
   .pie-foto{font-size:11px;color:var(--crema-sutil);margin-top:6px;line-height:1.35}
   .pie-foto b{color:var(--crema);font-weight:600;display:block}
 
@@ -185,6 +199,7 @@
       <button data-vista="resumen" class="activa">Resumen</button>
       <button data-vista="galeria">Galería</button>
       <button data-vista="ranking">Ranking</button>
+      <button data-vista="mensajes">Mensajes</button>
       <button data-vista="entregas">Entregas</button>
     </div>
 
@@ -244,6 +259,14 @@
       </div>
 
       <div class="carta">
+        <p class="cintillo">Álbum por momento</p>
+        <p class="tenue" style="margin:0 0 12px">Cada momento tiene su carpeta en Drive, en el orden de la boda. Para bajar uno completo:
+          ábrelo, toca <b>⋮</b> junto al nombre de la carpeta y elige <b>Descargar</b> (Drive lo baja en ZIP).</p>
+        <div id="lista-carpetas"></div>
+        <button class="secundario" id="boton-carpetas" style="width:100%;margin-top:10px">Ver carpetas</button>
+      </div>
+
+      <div class="carta">
         <p class="cintillo">Código QR para los invitados</p>
         <div id="qr"></div>
         <p class="tenue" id="texto-url" style="word-break:break-all;text-align:center;margin:0 0 12px"></p>
@@ -259,7 +282,9 @@
           <button data-tipo="todo" class="activa">Todo</button>
           <button data-tipo="foto">Solo fotos</button>
           <button data-tipo="video">Solo videos</button>
+          <button data-tipo="favoritas">⭐ Favoritas</button>
         </div>
+        <p class="tenue" style="margin:-4px 0 12px;font-size:12.5px">Toca la estrella para guardar las mejores: quedan también en la carpeta ⭐ Favoritas de Drive.</p>
 
         <div class="rejilla-galeria" id="rejilla-galeria"></div>
 
@@ -268,6 +293,17 @@
         </div>
         <p class="tenue oculto" id="galeria-vacia" style="margin:8px 0 0"></p>
         <button class="secundario oculto" id="boton-mas" style="width:100%;margin-top:14px">Ver más</button>
+      </div>
+    </div>
+
+    <!-- ---------- MENSAJES (libro de firmas) ---------- -->
+    <div id="vista-mensajes" class="oculto">
+      <div class="carta">
+        <p class="cintillo" id="mensajes-titulo">Libro de firmas</p>
+        <div id="lista-mensajes"></div>
+        <div id="mensajes-cargando" class="oculto" style="padding:26px 0"><div class="girando"></div></div>
+        <p class="tenue oculto" id="mensajes-vacio" style="margin:6px 0 0">Todavía nadie les ha dejado un mensaje.</p>
+        <button class="secundario" id="boton-mensajes" style="width:100%;margin-top:12px">Actualizar mensajes</button>
       </div>
     </div>
 
@@ -365,6 +401,15 @@ window.addEventListener('DOMContentLoaded', function(){
     if (ok) pedir('registro');
   });
   $('boton-descargar-qr').addEventListener('click', descargarQR);
+  $('boton-mensajes').addEventListener('click', pedirMensajes);
+  $('boton-carpetas').addEventListener('click', pedirCarpetas);
+  // la estrella va encima de la liga a Drive: que no la abra
+  $('rejilla-galeria').addEventListener('click', function(e){
+    var b = e.target.closest('.estrella');
+    if (!b) return;
+    e.preventDefault(); e.stopPropagation();
+    alternarFavorita(b.dataset.id);
+  });
   ['boton-concurso', 'boton-concurso-2'].forEach(function(id){
     $(id).addEventListener('click', async function(){
       var modo = this.dataset.modo;
@@ -418,7 +463,7 @@ function abrir(){
 }
 
 function cambiarVista(v, btn){
-  ['resumen','galeria','ranking','entregas'].forEach(function(x){
+  ['resumen','galeria','ranking','mensajes','entregas'].forEach(function(x){
     $('vista-' + x).classList.toggle('oculto', x !== v);
   });
   document.querySelectorAll('.pestanas button').forEach(function(b){ b.classList.remove('activa'); });
@@ -426,6 +471,7 @@ function cambiarVista(v, btn){
   window.scrollTo(0, 0);
   // La galería se pide hasta que la abren: las miniaturas pesan
   if (v === 'galeria' && !galeria.pedida) pedirGaleria(true);
+  if (v === 'mensajes') pedirMensajes();
 }
 
 /* ============================================================
@@ -629,8 +675,10 @@ function pintarGaleria(){
       ? '<img src="' + it.miniatura + '" alt="' + escapar(it.titulo) + '" loading="lazy">'
       : '<div class="vacio">' + (it.tipo === 'video' ? '▶' : '◧') + '</div>';
     var sello = it.tipo === 'video' ? '<span class="sello-video">VIDEO</span>' : '';
+    var estrella = '<button type="button" class="estrella' + (it.favorita ? ' si' : '') + '" data-id="' + escapar(it.id) +
+                   '" aria-label="' + (it.favorita ? 'Quitar de favoritas' : 'Marcar como favorita') + '">' + (it.favorita ? '★' : '☆') + '</button>';
     return '<a class="marco" href="' + escapar(it.enlace) + '" target="_blank">' +
-             '<div class="lienzo">' + interior + sello + '</div>' +
+             '<div class="lienzo">' + interior + sello + estrella + '</div>' +
              '<div class="pie-foto"><b>' + escapar(it.nombre.split(' ')[0]) + '</b>' +
                escapar(it.titulo) + '</div>' +
            '</a>';
@@ -639,11 +687,91 @@ function pintarGaleria(){
   var vacia = galeria.items.length === 0;
   $('galeria-vacia').classList.toggle('oculto', !vacia);
   if (vacia){
-    $('galeria-vacia').textContent = filtroGaleria === 'video'
-      ? 'Todavía no hay videos.'
-      : (filtroGaleria === 'foto' ? 'Todavía no hay fotos.' : 'Todavía no hay nada en el álbum.');
+    $('galeria-vacia').textContent = {
+      video: 'Todavía no hay videos.', foto: 'Todavía no hay fotos.',
+      favoritas: 'Todavía no marcan ninguna. Toquen la estrella de las que más les gusten.'
+    }[filtroGaleria] || 'Todavía no hay nada en el álbum.';
   }
   $('boton-mas').classList.toggle('oculto', !galeria.hayMas);
+}
+
+/* ---------- Favoritas ---------- */
+function alternarFavorita(id){
+  var it = galeria.items.find(function(x){ return x.id === id; });
+  if (!it) return;
+  var nuevo = !it.favorita;
+  it.favorita = nuevo;                          // se pinta al instante; si falla, se regresa
+  if (!nuevo && filtroGaleria === 'favoritas') galeria.items = galeria.items.filter(function(x){ return x.id !== id; });
+  pintarGaleria();
+  llamarApi({ accion: 'admin', clave: clave, sub: 'favorita', datos: { entregaId: id, valor: nuevo } })
+    .then(function(r){ if (!r || r.error) throw new Error(r && r.error); })
+    .catch(function(){
+      it.favorita = !nuevo;
+      if (filtroGaleria === 'favoritas' && !nuevo) galeria.items.unshift(it);
+      pintarGaleria();
+      avisar('No se pudo guardar la estrella. Intenta otra vez.');
+    });
+}
+
+/* ---------- Libro de firmas ---------- */
+var mensajes = [], pidiendoMensajes = false;
+function pedirMensajes(){
+  if (pidiendoMensajes) return;
+  pidiendoMensajes = true;
+  $('mensajes-cargando').classList.toggle('oculto', mensajes.length > 0);
+  llamarApi({ accion: 'admin', clave: clave, sub: 'mensajes' })
+    .then(function(r){
+      if (!r || r.error) throw new Error(r && r.error);
+      mensajes = r.mensajes || [];
+      pintarMensajes();
+    })
+    .catch(function(){ avisar('No se pudieron cargar los mensajes.'); })
+    .finally(function(){ pidiendoMensajes = false; $('mensajes-cargando').classList.add('oculto'); });
+}
+function duracion(s){ s = Math.round(s || 0); return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }
+function pintarMensajes(){
+  $('mensajes-titulo').textContent = 'Libro de firmas' + (mensajes.length ? ' · ' + mensajes.length : '');
+  $('mensajes-vacio').classList.toggle('oculto', mensajes.length > 0);
+  $('lista-mensajes').innerHTML = mensajes.map(function(m){
+    return '<div class="mensaje">' +
+      '<div class="quien"><b>' + escapar(m.nombre) + '</b><span class="tenue">' + escapar(String(m.fecha).slice(11, 16)) + '</span></div>' +
+      (m.texto ? '<p class="texto">' + escapar(m.texto) + '</p>' : '') +
+      (m.conAudio ? '<div id="voz-' + escapar(m.id) + '"><button class="secundario" style="width:100%" onclick="escuchar(\'' +
+        escapar(m.id) + '\')">▶ Escuchar nota de voz (' + duracion(m.segundos) + ')</button></div>' : '') +
+    '</div>';
+  }).join('');
+}
+function escuchar(id){
+  var caja = $('voz-' + id);
+  if (!caja) return;
+  caja.innerHTML = '<div class="girando" style="margin:8px auto"></div>';
+  llamarApi({ accion: 'admin', clave: clave, sub: 'audio', datos: { mensajeId: id } })
+    .then(function(r){
+      if (!r || r.error) throw new Error(r && r.error);
+      caja.innerHTML = '<audio controls autoplay src="' + r.audio + '"></audio>';
+    })
+    .catch(function(){
+      caja.innerHTML = '<button class="secundario" style="width:100%" onclick="escuchar(\'' + id + '\')">No se pudo cargar. Tocar para reintentar</button>';
+    });
+}
+
+/* ---------- Carpetas por momento ---------- */
+function pedirCarpetas(){
+  var b = $('boton-carpetas');
+  b.disabled = true; b.textContent = 'Cargando…';
+  llamarApi({ accion: 'admin', clave: clave, sub: 'carpetas' })
+    .then(function(r){
+      if (!r || r.error) throw new Error(r && r.error);
+      $('lista-carpetas').innerHTML = r.carpetas.map(function(c){
+        var cuenta = (c.fotos || c.videos) ? c.fotos + ' fotos · ' + c.videos + ' videos' : '';
+        return '<div class="carpeta"><span>' + escapar((c.emoji ? c.emoji + ' ' : '') + c.nombre) +
+          (cuenta ? '<br><span class="num">' + cuenta + '</span>' : '') + '</span>' +
+          (c.url ? '<a href="' + escapar(c.url) + '" target="_blank">Abrir ↗</a>' : '<span class="num">vacía</span>') + '</div>';
+      }).join('');
+      b.textContent = 'Actualizar carpetas';
+    })
+    .catch(function(){ b.textContent = 'Ver carpetas'; avisar('No se pudieron cargar las carpetas.'); })
+    .finally(function(){ b.disabled = false; });
 }
 
 function pintarQR(url){

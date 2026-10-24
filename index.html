@@ -92,6 +92,14 @@
   .fila-botones > *{flex:1}
   .fantasma{background:none;border:0;color:var(--crema-sutil);font-size:14px;text-decoration:underline;padding:10px;width:auto;margin:0 auto}
 
+  textarea{width:100%;min-height:110px;resize:vertical;font-family:inherit;font-size:16px;line-height:1.45;color:var(--crema);
+    background:rgba(0,0,0,.26);border:1px solid rgba(244,237,226,.16);border-radius:13px;padding:14px 16px;margin-bottom:12px}
+  textarea:focus{outline:0;border-color:var(--oro)}
+  textarea::placeholder{color:#7A6F7E}
+  .grabando{background:rgba(139,58,78,.22) !important;border-color:rgba(224,144,159,.55) !important;color:#F6C9D2 !important}
+  .grabando::before{content:'';width:9px;height:9px;border-radius:50%;background:#E0607A;animation:late 1s ease-in-out infinite}
+  @keyframes late{50%{opacity:.25}}
+  #firma-audio{width:100%;margin:2px 0 6px}
   input[type=text]{width:100%;font-family:inherit;font-size:17px;color:var(--crema);background:rgba(0,0,0,.26);
     border:1px solid rgba(244,237,226,.16);border-radius:13px;padding:16px 17px;margin-bottom:14px}
   input[type=text]:focus{outline:0;border-color:var(--oro)}
@@ -266,6 +274,21 @@
       <p class="resumen-cola oculto" id="resumen-libre"></p>
     </div>
 
+    <!-- libro de firmas: un regalo para los novios, no da puntos -->
+    <div class="carta" id="caja-firmas">
+      <h2 class="reto-titulo" style="font-size:27px">Libro de firmas</h2>
+      <p class="cintillo" style="margin-top:2px">Un mensaje para los novios</p>
+      <p class="tenue" style="margin:0 0 14px">Déjales unas palabras o grábales una nota de voz. Solo ellos la van a ver.</p>
+      <textarea id="firma-texto" maxlength="1500" placeholder="Escribe aquí tu mensaje…"></textarea>
+      <div id="firma-grabacion" class="oculto">
+        <audio id="firma-audio" controls preload="metadata"></audio>
+        <button class="fantasma" id="firma-quitar" style="margin:0 0 6px;padding:6px">Quitar la nota de voz</button>
+      </div>
+      <button class="secundario" id="boton-grabar">🎙️ Grabar nota de voz</button>
+      <button class="primario" id="boton-firmar" style="margin-top:10px">Enviar a los novios</button>
+      <div id="firma-aviso" class="aviso oculto" style="margin-top:12px"></div>
+    </div>
+
     <div class="carta" id="caja-premio">
       <p class="cintillo">El premio</p>
       <p class="tenue" id="texto-premio" style="margin:0"></p>
@@ -324,10 +347,14 @@ window.addEventListener('DOMContentLoaded', function(){
   $('boton-siguiente').addEventListener('click', siguiente);
   $('boton-saltar').addEventListener('click', saltar);
   $('boton-refrescar').addEventListener('click', function(){ cargarEstado(); });
+  $('boton-grabar').addEventListener('click', alternarGrabacion);
+  $('firma-quitar').addEventListener('click', quitarNotaDeVoz);
+  $('boton-firmar').addEventListener('click', enviarFirma);
+  if (!puedeGrabar()) $('boton-grabar').classList.add('oculto');
   $('boton-salir').addEventListener('click', async function(){
     if (hayPendientes() && !(await preguntar('Todavía se están subiendo archivos. ¿Salir de todos modos?',
         { si: 'Salir', no: 'Quedarme' }))) return;
-    olvidarGuest(); mostrar('pantalla-bienvenida');
+    olvidarGuest(); vaciarTelefono(); mostrar('pantalla-bienvenida');
   });
   // No cerrar la página a media subida sin avisar
   window.addEventListener('beforeunload', function(e){
@@ -340,7 +367,7 @@ window.addEventListener('DOMContentLoaded', function(){
   // solo. Cada minuto y al volver a la página (pantalla apagada, otra app).
   setInterval(refrescarSiSePuede, 60000);
   document.addEventListener('visibilitychange', function(){
-    if (document.visibilityState === 'visible') refrescarSiSePuede();
+    if (document.visibilityState === 'visible'){ refrescarSiSePuede(); if (procesando) mantenerPantalla(true); }
   });
 });
 
@@ -385,6 +412,7 @@ async function cargarEstado(silencioso){
     estado = r;
     pintar();
     mostrar('pantalla-juego');
+    retomarPendientes();
     if (cambio && r.reto){
       var caja = $('caja-reto');
       caja.classList.remove('nuevo'); void caja.offsetWidth; caja.classList.add('nuevo');
@@ -497,30 +525,52 @@ function encolar(lista, destino){
   for (var i = 0; i < lista.length; i++){
     var f = lista[i];
     var esVideo = (f.type || '').indexOf('video/') === 0 || /\.(mp4|mov|3gp|webm|m4v)$/i.test(f.name || '');
-    cola.push({
-      id: ++secuencia, archivo: f, destino: destino, esVideo: esVideo,
+    var it = {
+      id: 'S' + Date.now().toString(36) + '-' + (++secuencia) + '-' + Math.random().toString(36).slice(2, 6),
+      archivo: f, destino: destino, esVideo: esVideo,
       asigId: destino === 'reto' ? estado.asigId : '',
       estado: 'espera', intento: 0,
       vista: esVideo ? '' : URL.createObjectURL(f)
-    });
+    };
+    cola.push(it);
+    guardarEnTelefono(it);       // si cierran la página, se retoma al volver
   }
   pintarCola(); pintarBotones();
   procesar();
 }
 
+/* Mientras haya algo subiendo, la pantalla no se apaga sola: si se apaga,
+   el teléfono pausa la página y la subida se detiene. */
+var candadoPantalla = null;
+async function mantenerPantalla(encendida){
+  try {
+    if (encendida && !candadoPantalla && navigator.wakeLock && document.visibilityState === 'visible'){
+      candadoPantalla = await navigator.wakeLock.request('screen');
+      candadoPantalla.addEventListener('release', function(){ candadoPantalla = null; });
+    } else if (!encendida && candadoPantalla){
+      var c = candadoPantalla; candadoPantalla = null; await c.release();
+    }
+  } catch (e){ candadoPantalla = null; }
+}
+
 async function procesar(){
   if (procesando) return;
   procesando = true;
+  mantenerPantalla(true);
   try {
     while (true){
       var it = cola.find(function(x){ return x.estado === 'espera'; });
       if (!it) break;
       it.estado = 'subiendo'; pintarCola();
       await subirUno(it);
+      // Lo que ya llegó (o era copia, o nunca podrá subirse) sale del teléfono;
+      // lo que falló por señal se queda para el siguiente intento.
+      if (it.estado === 'listo' || it.estado === 'dup' || it.nota === 'Muy pesado' || it.nota === 'No se leyó') quitarDelTelefono(it.id);
       pintarCola(); pintarBotones();
     }
   } finally {
     procesando = false;
+    mantenerPantalla(false);
   }
   // Al terminar el lote, se trae el estado completo del servidor
   await cargarEstado(true);
@@ -561,7 +611,7 @@ async function subirUno(it){
     r = { error: 'Sin señal' };
   }
   it.progreso = null;
-  if (r && r.error === 'NO_REGISTRADO'){ it.estado = 'error'; olvidarGuest(); location.reload(); return; }
+  if (r && r.error === 'NO_REGISTRADO'){ it.estado = 'error'; olvidarGuest(); await vaciarTelefono(); location.reload(); return; }
   if (!r || r.error){ it.estado = 'error'; it.nota = /señal/i.test((r && r.error) || '') ? 'Sin señal' : 'Falló'; return; }
   if (r.duplicado){ it.estado = 'dup'; it.nota = 'Repetida'; return; }
 
@@ -600,12 +650,26 @@ async function subirEntero(f, meta){
 
 async function subirPorPartes(it, f, meta){
   for (var vuelta = 0; vuelta < 2; vuelta++){          // una segunda vuelta si Drive venció la subida
-    var ini = await conReintentos(function(){
-      return llamarApi({ accion: 'iniciar', guestId: guestId(), archivo: Object.assign({ tamano: f.size }, meta) });
-    });
-    if (!ini || ini.error || ini.duplicado) return ini;
-    var token = ini.token, trozo = ini.trozo || UNA_LLAMADA, pos = 0, fallos = 0;
-    it.progreso = 0; pintarCola();
+    var token = null, trozo = UNA_LLAMADA, pos = 0, fallos = 0;
+
+    // ¿Venía a medias de antes de cerrar la página? Se pregunta hasta dónde llegó.
+    if (it.token && vuelta === 0){
+      try {
+        var q0 = await llamarApi({ accion: 'trozo', guestId: guestId(), token: it.token });
+        if (q0 && !q0.error && typeof q0.siguiente === 'number'){ token = it.token; pos = q0.siguiente; }
+        else if (q0 && !q0.error) return q0;                                   // ya había terminado
+      } catch (e){}
+    }
+    if (!token){
+      var ini = await conReintentos(function(){
+        return llamarApi({ accion: 'iniciar', guestId: guestId(), archivo: Object.assign({ tamano: f.size }, meta) });
+      });
+      if (!ini || ini.error || ini.duplicado) return ini;
+      token = ini.token; trozo = ini.trozo || UNA_LLAMADA;
+    }
+    it.token = token;
+    guardarAvance(it.id, token, pos);
+    it.progreso = pos / f.size; pintarCola();
 
     while (true){
       var r = null;
@@ -616,10 +680,11 @@ async function subirPorPartes(it, f, meta){
 
       if (r && !r.error && typeof r.siguiente !== 'number') return r;          // terminó
       if (r && r.error === 'NO_REGISTRADO') return r;
-      if (r && r.error === 'SESION_VENCIDA') break;
+      if (r && r.error === 'SESION_VENCIDA'){ it.token = null; break; }
       if (r && !r.error){                                                      // parte recibida
         pos = r.siguiente; fallos = 0;
         it.progreso = pos / f.size; pintarCola();
+        guardarAvance(it.id, token, pos);
         continue;
       }
       // Se cayó la señal: esperar y preguntar hasta dónde llegó
@@ -629,7 +694,7 @@ async function subirPorPartes(it, f, meta){
         var q = await llamarApi({ accion: 'trozo', guestId: guestId(), token: token });
         if (q && !q.error && typeof q.siguiente === 'number'){ pos = q.siguiente; it.progreso = pos / f.size; pintarCola(); }
         else if (q && !q.error) return q;                                     // ya había terminado
-        else if (q && q.error === 'SESION_VENCIDA') break;
+        else if (q && q.error === 'SESION_VENCIDA'){ it.token = null; break; }
       } catch (e){}
     }
   }
@@ -653,7 +718,7 @@ function pintarCola(){
       var interior = it.vista ? '<img src="' + it.vista + '" alt="">' : '<div class="icono-video">▶</div>';
       var subiendo = typeof it.progreso === 'number' ? 'Subiendo ' + Math.floor(it.progreso * 100) + '%' : 'Subiendo';
       var sello = { espera: 'En fila', subiendo: subiendo, listo: it.nota, dup: it.nota, error: it.nota }[it.estado] || '';
-      var reintentar = it.estado === 'error' ? ' onclick="reintentar(' + it.id + ')"' : '';
+      var reintentar = it.estado === 'error' ? ' onclick="reintentar(\'' + it.id + '\')"' : '';
       return '<div class="pieza ' + it.estado + '"' + reintentar + '>' + interior + '<span class="sello">' + sello + '</span></div>';
     }).join('');
 
@@ -677,6 +742,186 @@ function reintentar(id){
   if (!it || it.estado !== 'error') return;
   it.estado = 'espera'; it.nota = '';
   pintarCola(); procesar();
+}
+
+/* ============================================================
+ *  Cola guardada en el teléfono (IndexedDB)
+ *  Cada archivo elegido se guarda aquí hasta que termina de subir. Si
+ *  cierran la página, se apaga la pantalla o se acaba la pila, al volver
+ *  a abrirla se retoma sola; los videos grandes, desde la parte en que iban.
+ *  Si el navegador no deja guardar (modo incógnito), todo sigue igual
+ *  que antes, solo sin esta red de seguridad.
+ * ============================================================ */
+var _bd = null, retomado = false;
+function abrirBD(){
+  if (_bd) return _bd;
+  _bd = new Promise(function(listo){
+    try {
+      var rq = indexedDB.open('revelio-subidas', 1);
+      rq.onupgradeneeded = function(){
+        rq.result.createObjectStore('cola', { keyPath: 'id' });     // el archivo y a dónde va
+        rq.result.createObjectStore('avance', { keyPath: 'id' });   // hasta dónde llegó (sin volver a copiar el archivo)
+      };
+      rq.onsuccess = function(){ listo(rq.result); };
+      rq.onerror = rq.onblocked = function(){ listo(null); };
+    } catch (e){ listo(null); }
+  });
+  return _bd;
+}
+async function enBD(tienda, modo, accion){
+  var bd = await abrirBD();
+  if (!bd) return null;
+  return new Promise(function(listo){
+    try {
+      var tx = bd.transaction(tienda, modo), pet = accion(tx.objectStore(tienda));
+      tx.oncomplete = function(){ listo(pet ? pet.result : true); };
+      tx.onerror = tx.onabort = function(){ listo(null); };
+    } catch (e){ listo(null); }
+  });
+}
+function guardarEnTelefono(it){
+  return enBD('cola', 'readwrite', function(t){
+    return t.put({ id: it.id, guestId: guestId(), destino: it.destino, asigId: it.asigId,
+                   esVideo: it.esVideo, archivo: it.archivo, guardado: Date.now() });
+  });
+}
+function guardarAvance(id, token, pos){
+  return enBD('avance', 'readwrite', function(t){ return t.put({ id: id, token: token, pos: pos }); });
+}
+function quitarDelTelefono(id){
+  enBD('cola', 'readwrite', function(t){ return t.delete(id); });
+  return enBD('avance', 'readwrite', function(t){ return t.delete(id); });
+}
+async function vaciarTelefono(){
+  await enBD('cola', 'readwrite', function(t){ return t.clear(); });
+  await enBD('avance', 'readwrite', function(t){ return t.clear(); });
+}
+
+async function retomarPendientes(){
+  if (retomado) return;
+  retomado = true;
+  var guardados = await enBD('cola', 'readonly', function(t){ return t.getAll(); });
+  if (!guardados || !guardados.length) return;
+  var avances = {};
+  ((await enBD('avance', 'readonly', function(t){ return t.getAll(); })) || [])
+    .forEach(function(a){ avances[a.id] = a; });
+
+  var yo = guestId(), n = 0;
+  guardados.forEach(function(g){
+    // de otra persona que usó este teléfono, o de hace más de 3 días: se descarta
+    if (g.guestId !== yo || !g.archivo || Date.now() - (g.guardado || 0) > 3 * 86400000){ quitarDelTelefono(g.id); return; }
+    if (cola.some(function(x){ return x.id === g.id; })) return;
+    cola.push({
+      id: g.id, archivo: g.archivo, destino: g.destino, esVideo: g.esVideo, asigId: g.asigId,
+      estado: 'espera', intento: 0, token: avances[g.id] ? avances[g.id].token : null,
+      vista: g.esVideo ? '' : URL.createObjectURL(g.archivo)
+    });
+    n++;
+  });
+  if (!n) return;
+  brindis('Retomando ' + n + (n === 1 ? ' subida pendiente' : ' subidas pendientes'));
+  pintarCola(); pintarBotones();
+  procesar();
+}
+
+/* ============================================================
+ *  Libro de firmas: mensaje escrito y/o nota de voz
+ * ============================================================ */
+var MAX_SEGUNDOS_VOZ = 120;
+var grabadora = null, trozosVoz = [], notaVoz = null, relojVoz = null, inicioVoz = 0;
+
+function puedeGrabar(){
+  return !!(window.MediaRecorder && navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+}
+function formatoVoz(){
+  var opciones = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
+  for (var i = 0; i < opciones.length; i++){
+    try { if (MediaRecorder.isTypeSupported(opciones[i])) return opciones[i]; } catch (e){}
+  }
+  return '';
+}
+function avisoFirma(texto, esError){
+  var a = $('firma-aviso');
+  a.textContent = texto;
+  a.classList.toggle('error', !!esError);
+  a.classList.remove('oculto');
+}
+
+async function alternarGrabacion(){
+  if (grabadora && grabadora.state === 'recording'){ grabadora.stop(); return; }
+  $('firma-aviso').classList.add('oculto');
+  var flujo;
+  try {
+    flujo = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (e){
+    avisoFirma('No pudimos usar el micrófono. Revisa que el navegador tenga permiso, o escríbeles un mensaje.', true);
+    return;
+  }
+  var tipo = formatoVoz();
+  try { grabadora = tipo ? new MediaRecorder(flujo, { mimeType: tipo }) : new MediaRecorder(flujo); }
+  catch (e){ flujo.getTracks().forEach(function(t){ t.stop(); }); avisoFirma('Este navegador no deja grabar audio.', true); return; }
+
+  trozosVoz = [];
+  grabadora.ondataavailable = function(e){ if (e.data && e.data.size) trozosVoz.push(e.data); };
+  grabadora.onstop = function(){
+    flujo.getTracks().forEach(function(t){ t.stop(); });
+    clearInterval(relojVoz);
+    var segundos = (Date.now() - inicioVoz) / 1000;
+    var b = $('boton-grabar');
+    b.classList.remove('grabando');
+    b.textContent = '🎙️ Grabar otra vez';
+    if (!trozosVoz.length) return;
+    var blob = new Blob(trozosVoz, { type: grabadora.mimeType || tipo || 'audio/webm' });
+    if (notaVoz && notaVoz.url) URL.revokeObjectURL(notaVoz.url);
+    notaVoz = { blob: blob, segundos: segundos, url: URL.createObjectURL(blob) };
+    $('firma-audio').src = notaVoz.url;
+    $('firma-grabacion').classList.remove('oculto');
+  };
+  grabadora.start(1000);
+  inicioVoz = Date.now();
+  var b = $('boton-grabar');
+  b.classList.add('grabando');
+  var pintarReloj = function(){
+    var s = Math.floor((Date.now() - inicioVoz) / 1000);
+    b.textContent = 'Detener · ' + Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2);
+    if (s >= MAX_SEGUNDOS_VOZ && grabadora.state === 'recording') grabadora.stop();
+  };
+  pintarReloj();
+  relojVoz = setInterval(pintarReloj, 500);
+}
+
+function quitarNotaDeVoz(){
+  if (notaVoz && notaVoz.url) URL.revokeObjectURL(notaVoz.url);
+  notaVoz = null;
+  $('firma-audio').removeAttribute('src');
+  $('firma-grabacion').classList.add('oculto');
+  $('boton-grabar').textContent = '🎙️ Grabar nota de voz';
+}
+
+async function enviarFirma(){
+  if (grabadora && grabadora.state === 'recording'){ avisoFirma('Primero detén la grabación.', true); return; }
+  var texto = $('firma-texto').value.trim();
+  if (!texto && !notaVoz){ avisoFirma('Escríbeles algo o graba una nota de voz.', true); return; }
+  var b = $('boton-firmar');
+  b.disabled = true; b.innerHTML = '<span class="girando oscuro"></span> Enviando…';
+  try {
+    var mensaje = { texto: texto };
+    if (notaVoz){
+      mensaje.audio = await leerBase64(notaVoz.blob);
+      mensaje.mimeType = notaVoz.blob.type;
+      mensaje.segundos = notaVoz.segundos;
+    }
+    var r = await conReintentos(function(){ return llamarApi({ accion: 'mensaje', guestId: guestId(), mensaje: mensaje }); });
+    if (!r || r.error){ avisoFirma((r && r.error && r.error !== 'Sin señal') ? r.error : 'No hay señal. Tu mensaje sigue aquí: intenta enviarlo otra vez.', true); return; }
+    $('firma-texto').value = '';
+    quitarNotaDeVoz();
+    avisoFirma('¡Gracias! Tu mensaje ya les llegó. Puedes dejarles otro cuando quieras.', false);
+    brindis('Mensaje enviado ♥');
+  } catch (e){
+    avisoFirma('No se pudo enviar. Tu mensaje sigue aquí: intenta otra vez.', true);
+  } finally {
+    b.disabled = false; b.textContent = 'Enviar a los novios';
+  }
 }
 
 /* ============================================================
